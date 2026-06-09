@@ -16,8 +16,6 @@ java {
     toolchain {
         languageVersion.set(JavaLanguageVersion.of(17))
     }
-    withSourcesJar()
-    withJavadocJar()
 }
 
 tasks.withType<JavaCompile>().configureEach {
@@ -65,7 +63,7 @@ mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL)
     signAllPublications()
 
-    configure(JavaLibrary(javadocJar = JavadocJar.Empty(), sourcesJar = true))
+    configure(JavaLibrary(javadocJar = JavadocJar.Javadoc(), sourcesJar = true))
 
     coordinates(group.toString(), "cryptochief-crypto-processing-java", version.toString())
 
