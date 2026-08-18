@@ -81,6 +81,7 @@ public class App {
 | `client.staticDeposits()` | info, history |
 | `client.blockchain()` | contractsAvailable, walletBalance, transactionStatus |
 | `client.currencies()` | fiatToCrypto, cryptoToFiat |
+| `client.credits()` | balance, topup |
 
 ## Invoices (PayIn)
 

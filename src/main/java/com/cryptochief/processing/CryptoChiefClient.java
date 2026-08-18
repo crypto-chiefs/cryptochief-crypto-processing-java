@@ -2,6 +2,7 @@ package com.cryptochief.processing;
 
 import com.cryptochief.processing.http.HttpTransport;
 import com.cryptochief.processing.services.BlockchainService;
+import com.cryptochief.processing.services.CreditsService;
 import com.cryptochief.processing.services.CurrenciesService;
 import com.cryptochief.processing.services.PayInsService;
 import com.cryptochief.processing.services.PayoutsService;
@@ -27,6 +28,7 @@ public final class CryptoChiefClient implements AutoCloseable {
     private final StaticDepositsService staticDeposits;
     private final BlockchainService blockchain;
     private final CurrenciesService currencies;
+    private final CreditsService credits;
 
     private volatile TonRpcClient tonRpc;
 
@@ -42,6 +44,7 @@ public final class CryptoChiefClient implements AutoCloseable {
         this.staticDeposits = new StaticDepositsService(transport);
         this.blockchain = new BlockchainService(transport);
         this.currencies = new CurrenciesService(transport);
+        this.credits = new CreditsService(transport);
     }
 
     public static CryptoChiefClient create(String merchantId, String apiKey) {
@@ -64,6 +67,7 @@ public final class CryptoChiefClient implements AutoCloseable {
     public StaticDepositsService staticDeposits() { return staticDeposits; }
     public BlockchainService blockchain() { return blockchain; }
     public CurrenciesService currencies() { return currencies; }
+    public CreditsService credits() { return credits; }
 
     public TonRpcClient tonRpc() {
         TonRpcClient local = tonRpc;

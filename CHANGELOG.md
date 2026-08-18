@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.2.0] — 2026-08-18
+
+- `CreditsService` (`client.credits().balance()`) — `POST /v1/credits/balance`, billing-exempt credits/USD balance check with postpaid and gas-operation gate info
+- `client.credits().topup(CreditsTopupRequest)` — `POST /v1/credits/topup`, billing-exempt topup invoice (`USDT`/`USDC`) returning a hosted `payment_link`
+
 ## [0.1.0] — 2026-06-09
 
 Initial release.
