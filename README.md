@@ -76,7 +76,7 @@ public class App {
 | `client.transactions()` | sign, execute, info, history + EVM/TRON/Solana/TON helpers |
 | `client.payIns()` | create, info, history, cancel, selectAsset, resetAsset |
 | `client.wallets()` | generate, list, info, freeze, decryptPrivateKey |
-| `client.sweeps()` | force, history, walletHistory |
+| `client.sweeps()` | force, history, walletHistory, settings, updateSettings |
 | `client.withdrawals()` | info, history |
 | `client.staticDeposits()` | info, history |
 | `client.blockchain()` | contractsAvailable, walletBalance, transactionStatus |
@@ -112,6 +112,39 @@ var invoice = client.payIns().create(new CreatePayInRequest(
     "10", new Asset(Chain.TRON_MAINNET, "USDT")));
 System.out.println("pay to " + invoice.toAddress());
 ```
+
+## Auto-sweep settings
+
+A deposit wallet is swept to your master wallet on a policy: as soon as funds arrive, once
+the balance reaches an amount, or never on its own (a force sweep still works).
+
+```java
+import com.cryptochief.processing.models.SweepFieldWrite;
+import com.cryptochief.processing.models.SweepPolicyMode;
+import com.cryptochief.processing.models.SweepSettingsQuery;
+
+var s = client.sweeps().updateSettings(depositAddress,
+    SweepFieldWrite.set(SweepPolicyMode.THRESHOLD),
+    SweepFieldWrite.set("250"),
+    null);
+
+System.out.println(s.effective().typeWork());  // what will actually happen
+System.out.println(s.effective().source());    // which layer decided it
+```
+
+The read (`client.sweeps().settings(SweepSettingsQuery.forAddress(address))`) comes back in
+three layers — `effective` (what will happen), `override` (what this wallet decides for
+itself) and `projectDefault` (what it falls back to) — because only the three together say
+whether a value is yours or inherited.
+
+Inheritance is per field: writing the mode leaves the fee mode inherited. A `null` argument
+leaves a field alone; `SweepFieldWrite.inherit()` stops overriding it.
+
+A sweep is broadcast first and confirmed after: `SweepStatus.BROADCASTED` means the
+transaction is out and not yet confirmed, `SweepStatus.COMPLETED` means confirmed, with
+`sweepConfirmations()` and `completedAt()` filled in. Earlier platform versions reported
+`completed` at broadcast, so a sweep could read as settled while its transaction was still
+unconfirmed.
 
 ## Contract calls
 
