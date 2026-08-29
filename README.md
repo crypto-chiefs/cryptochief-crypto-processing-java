@@ -14,7 +14,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 <dependency>
   <groupId>com.crypto-chief</groupId>
   <artifactId>cryptochief-crypto-processing-java</artifactId>
-  <version>0.4.0</version>
+  <version>0.5.0</version>
 </dependency>
 ```
 
@@ -22,7 +22,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 
 ```kotlin
 dependencies {
-    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.4.0")
+    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.5.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.4.0'
+    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.5.0'
 }
 ```
 
