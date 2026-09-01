@@ -75,7 +75,7 @@ public class App {
 | `client.payouts()` | estimate, execute, info, history, batchEstimate, batchExecute |
 | `client.transactions()` | sign, execute, info, history + EVM/TRON/Solana/TON helpers |
 | `client.payIns()` | create, info, history, cancel, selectAsset, resetAsset |
-| `client.wallets()` | generate, list, info, freeze, decryptPrivateKey |
+| `client.wallets()` | generate, list, info, freeze, rebindMaster, setCallbackUrl, clearCallbackUrl, decryptPrivateKey |
 | `client.sweeps()` | force, history, walletHistory, settings, updateSettings |
 | `client.withdrawals()` | info, history |
 | `client.staticDeposits()` | info, history |
@@ -112,6 +112,52 @@ var invoice = client.payIns().create(new CreatePayInRequest(
     "10", new Asset(Chain.TRON_MAINNET, "USDT")));
 System.out.println("pay to " + invoice.toAddress());
 ```
+
+## Wallets
+
+`generate` takes an optional `label` — a name of your own for the wallet, at most 255
+characters, stored and never interpreted. It applies to every wallet type, a master wallet
+as much as a static one. Leave it null and the wallet stays unnamed; the field then does not
+go on the wire at all.
+
+```java
+import com.cryptochief.processing.ChainFamily;
+import com.cryptochief.processing.models.GenerateWalletRequest;
+import com.cryptochief.processing.models.WalletType;
+
+var wallet = client.wallets().generate(new GenerateWalletRequest(
+    WalletType.STATIC, ChainFamily.EVM, masterAddress,
+    "https://your.app/webhooks/deposit",
+    "Acme Corp — EU customers"));
+```
+
+Two things can still be changed once the wallet exists.
+
+`rebindMaster` re-points a transit or static wallet at another master wallet of the project:
+
+```java
+var moved = client.wallets().rebindMaster(depositAddress, otherMasterAddress);
+System.out.println(moved.masterWalletAddress());
+```
+
+It moves no money. It decides where the *next* sweep settles — including sweeps already
+queued but not yet sent — and everything swept before stays on the previous master. Calling
+it again with the same master returns 200 and changes nothing. Master wallets cannot be
+re-pointed, and the new master must be the same chain family and not frozen.
+
+`setCallbackUrl` sets or clears the deposit webhook of a static wallet after creation:
+
+```java
+client.wallets().setCallbackUrl(depositAddress, "https://your.app/webhooks/deposit");
+client.wallets().clearCallbackUrl(depositAddress);   // sends "", stops the announcements
+```
+
+Static wallets only — master and transit answer 400. A deposit that was already announced
+is not announced again to the new URL.
+
+Both calls return the wallet as it stands afterwards, so the new binding or URL is visible
+without a second request. `masterWalletAddress()` and `callbackUrl()` read as `null` when
+the wallet has neither.
 
 ## Auto-sweep settings
 
