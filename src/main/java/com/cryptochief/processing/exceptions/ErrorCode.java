@@ -14,6 +14,7 @@ public final class ErrorCode {
     public static final String SERVICE_ERROR = "SERVICE_ERROR";
     public static final String UNAUTHORIZED = "UNAUTHORIZED";
     public static final String URL_CALLBACK_REQUIRED = "URL_CALLBACK_REQUIRED";
+    public static final String LABEL_TOO_LONG = "LABEL_TOO_LONG";
     public static final String BATCH_EMPTY = "BATCH_EMPTY";
     public static final String BATCH_TOO_LARGE = "BATCH_TOO_LARGE";
     public static final String BATCH_DUPLICATE_ORDER_ID = "BATCH_DUPLICATE_ORDER_ID";

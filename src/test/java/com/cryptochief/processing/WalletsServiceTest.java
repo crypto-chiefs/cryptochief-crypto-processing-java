@@ -1,6 +1,7 @@
 package com.cryptochief.processing;
 
 import com.cryptochief.processing.models.GenerateWalletRequest;
+import com.cryptochief.processing.models.ListWalletsResponse;
 import com.cryptochief.processing.models.Wallet;
 import com.cryptochief.processing.models.WalletType;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -28,11 +29,12 @@ class WalletsServiceTest {
               "chain_family": "EVM",
               "frozen": false,
               "master_wallet_address": "0xnewmaster",
-              "callback_url": "https://your.app/webhooks/deposit"
+              "callback_url": "https://your.app/webhooks/deposit",
+              "label": "Acme Corp - EU"
             }
             """;
 
-    /** The same shape with nothing bound: both fields present, both null. */
+    /** The same shape with nothing bound: every field present, all three null. */
     private static final String UNBOUND_WALLET = """
             {
               "type": "transit",
@@ -40,7 +42,21 @@ class WalletsServiceTest {
               "chain_family": "EVM",
               "frozen": false,
               "master_wallet_address": null,
-              "callback_url": null
+              "callback_url": null,
+              "label": null
+            }
+            """;
+
+    /** A master wallet: no callback URL of its own, but named like any other. */
+    private static final String MASTER_WALLET = """
+            {
+              "type": "master",
+              "address": "0xmaster",
+              "chain_family": "EVM",
+              "frozen": false,
+              "master_wallet_address": null,
+              "callback_url": null,
+              "label": "Treasury"
             }
             """;
 
@@ -191,5 +207,90 @@ class WalletsServiceTest {
         assertEquals("transit", out.type());
         assertEquals("0xtransit", out.address());
         assertFalse(out.frozen());
+    }
+
+    @Test
+    void setLabelPostsTheAddressAndTheNameAndNothingElse() throws Exception {
+        server.enqueue(new MockResponse().setBody(STATIC_WALLET));
+
+        Wallet out = client.wallets().setLabel("0xstatic", "Acme Corp - EU");
+
+        RecordedRequest recorded = server.takeRequest();
+        assertEquals("POST", recorded.getMethod());
+        assertEquals("/v1/wallets/label", recorded.getPath());
+        assertEquals("mer_test", recorded.getHeader("Merchant"));
+        assertEquals("{\"address\":\"0xstatic\",\"label\":\"Acme Corp - EU\"}",
+                recorded.getBody().readUtf8());
+        // The reply is the wallet as it stands afterwards, so the new name is visible
+        // without asking again.
+        assertEquals("Acme Corp - EU", out.label());
+    }
+
+    @Test
+    void clearingTheLabelSendsAnEmptyStringRatherThanOmittingTheField() throws Exception {
+        server.enqueue(new MockResponse().setBody(UNBOUND_WALLET));
+
+        Wallet out = client.wallets().clearLabel("0xtransit");
+
+        // "" is how this endpoint spells "clear it". Dropping the field - which the
+        // canonical encoder does to nulls - would be a malformed request instead.
+        assertEquals("{\"address\":\"0xtransit\",\"label\":\"\"}",
+                server.takeRequest().getBody().readUtf8());
+        // And the wallet comes back nameless: null, not the "" that was sent.
+        assertNull(out.label());
+    }
+
+    @Test
+    void nullLabelArgumentClearsRatherThanDisappearing() throws Exception {
+        server.enqueue(new MockResponse().setBody(UNBOUND_WALLET));
+
+        client.wallets().setLabel("0xtransit", null);
+
+        JsonNode body = sentBody();
+        assertTrue(body.has("label"));
+        assertEquals("", body.get("label").asText());
+    }
+
+    @Test
+    void everyWalletResponseCarriesTheLabel() throws Exception {
+        // Generation, info, the list, and the two other wallet updates all answer with the
+        // same wallet shape, and the name is part of it wherever it appears.
+        server.enqueue(new MockResponse().setBody(STATIC_WALLET));
+        assertEquals("Acme Corp - EU", client.wallets().generate(
+                new GenerateWalletRequest(WalletType.STATIC, ChainFamily.EVM, "0xmaster", null))
+                .label());
+
+        server.enqueue(new MockResponse().setBody(STATIC_WALLET));
+        assertEquals("Acme Corp - EU", client.wallets().info("0xstatic").label());
+
+        server.enqueue(new MockResponse().setBody(STATIC_WALLET));
+        assertEquals("Acme Corp - EU",
+                client.wallets().rebindMaster("0xstatic", "0xnewmaster").label());
+
+        server.enqueue(new MockResponse().setBody(STATIC_WALLET));
+        assertEquals("Acme Corp - EU", client.wallets()
+                .setCallbackUrl("0xstatic", "https://your.app/webhooks/deposit").label());
+
+        server.enqueue(new MockResponse().setBody(
+                "{\"items\":[" + MASTER_WALLET + "," + STATIC_WALLET + "," + UNBOUND_WALLET + "]}"));
+        ListWalletsResponse listed = client.wallets().list();
+        // Including the master wallet: a label names any wallet, not only the types that
+        // take a callback URL.
+        assertEquals("Treasury", listed.items().get(0).label());
+        assertEquals("Acme Corp - EU", listed.items().get(1).label());
+        assertNull(listed.items().get(2).label());
+    }
+
+    @Test
+    void aNullLabelDecodesAsNoNameRatherThanAsAnEmptyString() throws Exception {
+        server.enqueue(new MockResponse().setBody(UNBOUND_WALLET));
+
+        Wallet out = client.wallets().info("0xtransit");
+
+        // The key is always present and null means "unnamed". A null has to read as
+        // absence, not blow up the decode and not arrive as "".
+        assertNull(out.label());
+        assertEquals("0xtransit", out.address());
+        assertEquals("transit", out.type());
     }
 }

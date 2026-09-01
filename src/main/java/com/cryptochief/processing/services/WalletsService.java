@@ -8,6 +8,7 @@ import com.cryptochief.processing.models.GenerateWalletRequest;
 import com.cryptochief.processing.models.ListWalletsResponse;
 import com.cryptochief.processing.models.RebindMasterRequest;
 import com.cryptochief.processing.models.SetCallbackUrlRequest;
+import com.cryptochief.processing.models.SetLabelRequest;
 import com.cryptochief.processing.models.Wallet;
 import com.cryptochief.processing.rsa.RsaDecrypt;
 
@@ -79,6 +80,32 @@ public final class WalletsService {
      */
     public Wallet clearCallbackUrl(String address) {
         return setCallbackUrl(address, "");
+    }
+
+    /**
+     * Set or replace the label of a wallet - the name you gave it, at most 255 characters,
+     * stored and never interpreted. Longer answers 400 with {@code LABEL_TOO_LONG}.
+     *
+     * <p>Every wallet type, unlike {@link #setCallbackUrl(String, String)}: a master wallet
+     * is named the same way a static one is. The name is yours alone and changes nothing
+     * about where funds go.
+     *
+     * <p>An empty {@code label} clears the name rather than leaving it alone - see
+     * {@link #clearLabel(String)}, which says so out loud. Null is read the same way,
+     * because the endpoint always writes the value it is given and has no "leave it as it
+     * is".
+     */
+    public Wallet setLabel(String address, String label) {
+        return transport.send("/v1/wallets/label",
+                new SetLabelRequest(address, label), Wallet.class);
+    }
+
+    /**
+     * Take the name off a wallet: sends an empty {@code label}, which is how the endpoint
+     * spells "clear it". The wallet then reads back with {@link Wallet#label()} null.
+     */
+    public Wallet clearLabel(String address) {
+        return setLabel(address, "");
     }
 
     /** Requires {@link Options#rsaPrivateKey()} to be set. */

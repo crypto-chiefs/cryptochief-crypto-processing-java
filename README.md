@@ -75,7 +75,7 @@ public class App {
 | `client.payouts()` | estimate, execute, info, history, batchEstimate, batchExecute |
 | `client.transactions()` | sign, execute, info, history + EVM/TRON/Solana/TON helpers |
 | `client.payIns()` | create, info, history, cancel, selectAsset, resetAsset |
-| `client.wallets()` | generate, list, info, freeze, rebindMaster, setCallbackUrl, clearCallbackUrl, decryptPrivateKey |
+| `client.wallets()` | generate, list, info, freeze, rebindMaster, setCallbackUrl, clearCallbackUrl, setLabel, clearLabel, decryptPrivateKey |
 | `client.sweeps()` | force, history, walletHistory, settings, updateSettings |
 | `client.withdrawals()` | info, history |
 | `client.staticDeposits()` | info, history |
@@ -131,7 +131,10 @@ var wallet = client.wallets().generate(new GenerateWalletRequest(
     "Acme Corp — EU customers"));
 ```
 
-Two things can still be changed once the wallet exists.
+The name comes back on every response that describes a wallet — generation, `info`, the
+list, and the updates below — as `label()`, which reads `null` when the wallet has no name.
+
+Three things can still be changed once the wallet exists.
 
 `rebindMaster` re-points a transit or static wallet at another master wallet of the project:
 
@@ -155,9 +158,19 @@ client.wallets().clearCallbackUrl(depositAddress);   // sends "", stops the anno
 Static wallets only — master and transit answer 400. A deposit that was already announced
 is not announced again to the new URL.
 
-Both calls return the wallet as it stands afterwards, so the new binding or URL is visible
-without a second request. `masterWalletAddress()` and `callbackUrl()` read as `null` when
-the wallet has neither.
+`setLabel` renames a wallet, or takes the name off it:
+
+```java
+client.wallets().setLabel(depositAddress, "Acme Corp — EU customers");
+client.wallets().clearLabel(depositAddress);   // sends "", the wallet goes back to unnamed
+```
+
+Every wallet type, unlike the callback URL — a master wallet is named the same way a static
+one is. Over 255 characters answers 400 with `LABEL_TOO_LONG`.
+
+All three calls return the wallet as it stands afterwards, so the new binding, URL or name
+is visible without a second request. `masterWalletAddress()`, `callbackUrl()` and `label()`
+read as `null` when the wallet has none.
 
 ## Auto-sweep settings
 

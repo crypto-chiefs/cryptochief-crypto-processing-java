@@ -14,9 +14,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  *
  * <p>{@code label} is a human-readable name for the wallet - at most 255 characters,
  * stored and never interpreted - and applies to every wallet type, master and transit as
- * much as static. Null leaves the wallet unnamed and keeps the field off the wire; an empty
- * string is normalised to null for the same reason, because it would be a name the platform
- * has to store rather than the absence of one.
+ * much as static; {@link com.cryptochief.processing.services.WalletsService#setLabel}
+ * changes it afterwards. Null leaves the wallet unnamed and keeps the field off the wire;
+ * an empty string is normalised to null for the same reason, because it would be a name the
+ * platform has to store rather than the absence of one.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record GenerateWalletRequest(
