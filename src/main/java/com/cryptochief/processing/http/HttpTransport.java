@@ -149,6 +149,13 @@ public final class HttpTransport {
                         ? node.get("error").asText() : null;
                 String msgField = node.has("msg") && node.get("msg").isTextual()
                         ? node.get("msg").asText() : null;
+                // Two envelope shapes, one code. When "error" names the refusal itself
+                // (LABEL_TOO_LONG, INVALID_PARAMS, ...) that is the code and "msg" is an
+                // English sentence for a human. When "error" is the generic SERVICE_ERROR
+                // marker, the refusal came from an upstream service and names itself in
+                // "msg" instead. Do not "simplify" this to preferring msg: that hands the
+                // caller a sentence and every gateway-side ErrorCode constant stops
+                // matching.
                 if (msgField == null || msgField.isEmpty() || msgField.equals(errorField)) {
                     code = errorField;
                 } else if (errorField == null || errorField.isEmpty()

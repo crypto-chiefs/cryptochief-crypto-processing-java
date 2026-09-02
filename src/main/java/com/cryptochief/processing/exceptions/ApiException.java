@@ -16,6 +16,20 @@ public class ApiException extends CryptoChiefException {
         this.raw = raw;
     }
 
+    /**
+     * The machine-readable code, and the one field to branch on.
+     *
+     * <p>The wire has two envelope shapes and this resolves both. A refusal the gateway
+     * decided itself names itself in {@code error} and puts an English sentence in
+     * {@code msg} - {@code {"error":"LABEL_TOO_LONG","msg":"label is longer than 255
+     * characters"}} - and the code is {@code LABEL_TOO_LONG}. A refusal relayed from an
+     * upstream service arrives as {@code error: "SERVICE_ERROR"} with the real token in
+     * {@code msg} - {@code {"error":"SERVICE_ERROR","msg":"wallet_not_found"}} - and the
+     * code is {@code wallet_not_found}. Either way one switch over {@link ErrorCode}
+     * constants and upstream tokens is enough.
+     *
+     * <p>Falls back to {@code HTTP_<status>} when the body carries neither field.
+     */
     public String code() {
         return code;
     }
@@ -24,10 +38,16 @@ public class ApiException extends CryptoChiefException {
         return status;
     }
 
+    /**
+     * The human-readable half: the {@code msg} sentence when the gateway sent one, and
+     * otherwise the same string as {@link #code()}. For logs and support tickets, never
+     * for branching - the wording is not stable.
+     */
     public String description() {
         return description;
     }
 
+    /** The response body verbatim, truncated at 8&nbsp;KiB. Nothing is dropped before that. */
     public String raw() {
         return raw;
     }

@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.6.0] — 2026-09-02
+
+Wallets can be named, re-wired and re-pointed after they exist. Until now a wallet's
+webhook and its master were fixed at generation, and it had no name at all.
+
+- Wallets carry a `label` — a name of at most 255 characters, stored and never interpreted. `GenerateWalletRequest.withLabel()` names a wallet as it is created, and `Wallet.label()` reads it back from generate, info, list and every endpoint that changes a wallet. An unnamed wallet reads as `null`, never an empty string. The previous four-argument `GenerateWalletRequest` constructor is kept as a delegating overload, so code written before labels existed still compiles
+- `client.wallets().setLabel()` — `POST /v1/wallets/label`, names an existing wallet or renames it, and `clearLabel()` takes the name off. Every wallet type, master included: naming changes nothing about where funds go. An empty label is what clears the name rather than a request to leave it alone — the endpoint always writes the value it is given, so `null` is read the same way
+- `client.wallets().setCallbackUrl()` — `POST /v1/wallets/callback-url`, moves the deposit webhook of a static wallet after the wallet was created; `clearCallbackUrl()` stops the announcements. Static wallets only, master and transit answer 400. A deposit already announced is not announced again to the new URL; the change applies from there on
+- `client.wallets().rebindMaster()` — `POST /v1/wallets/rebind-master`, re-points a transit or static wallet at another master wallet of the same project. No money moves: what changes is where the NEXT sweep settles, including sweeps already queued and not yet sent. Anything already swept stays on the previous master, and getting it across is a separate transfer. Idempotent, and the new master has to be the project's own, of the same chain family, and not frozen
+- `ErrorCode.LABEL_TOO_LONG` — the code behind the 400 a label longer than 255 characters answers with. It reaches `ApiException.code()` as that constant, with `"label is longer than 255 characters"` in `description()`. Nothing changed in the mapping to make that true: this SDK has always taken the code from the envelope's `error` field when the gateway named the refusal itself, and lifts `msg` into the code only when `error` is the generic `SERVICE_ERROR` of a relayed upstream refusal. Both shapes are now pinned by tests, and `ApiException.code()` documents the rule, so a caller matching on `ErrorCode` constants and one matching on upstream tokens like `wallet_not_found` are both switching on the same one field
+
 ## [0.4.0] — 2026-08-28
 
 Same API surface as the Go SDK v0.4.0; the version numbers across the SDK family

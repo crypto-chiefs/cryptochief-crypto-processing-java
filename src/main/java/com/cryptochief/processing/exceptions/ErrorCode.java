@@ -1,6 +1,12 @@
 package com.cryptochief.processing.exceptions;
 
-/** Known stable error code strings used in {@link ApiException#code()}. */
+/**
+ * Known stable error code strings used in {@link ApiException#code()}.
+ *
+ * <p>Not the whole set: refusals relayed from an upstream service carry their own
+ * lower-case tokens ({@code wallet_not_found}, {@code master_wallet_frozen}, ...) and reach
+ * {@link ApiException#code()} the same way. Compare against those as string literals.
+ */
 public final class ErrorCode {
     public static final String INSUFFICIENT_FUNDS = "INSUFFICIENT_FUNDS";
     public static final String INSUFFICIENT_CREDITS = "INSUFFICIENT_CREDITS";

@@ -95,4 +95,68 @@ class HttpTransportTest {
         assertEquals("HTTP_418", ex3.code());
         assertEquals(418, ex3.status());
     }
+
+    /**
+     * The gateway decides some refusals itself and names them in {@code error}, putting an
+     * English sentence in {@code msg}. Reading the code out of {@code msg} would hand the
+     * caller that sentence and leave every gateway-side constant unmatchable.
+     */
+    @Test
+    void gatewayEnvelopePutsTheMachineCodeInCode() {
+        server.enqueue(new MockResponse().setResponseCode(400).setBody(
+                "{\"ok\":false,\"error\":\"LABEL_TOO_LONG\","
+                        + "\"msg\":\"label is longer than 255 characters\"}"));
+        ApiException ex = assertThrows(ApiException.class,
+                () -> client.wallets().setLabel("0xabc", "x".repeat(300)));
+
+        assertEquals(ErrorCode.LABEL_TOO_LONG, ex.code());
+        assertEquals("label is longer than 255 characters", ex.description());
+        assertTrue(ex.getMessage().contains("label is longer than 255 characters"));
+        assertTrue(ex.raw().contains("LABEL_TOO_LONG"));
+        assertTrue(ex.raw().contains("label is longer than 255 characters"));
+    }
+
+    /** The switch the documentation tells callers to write has to select the right branch. */
+    @Test
+    void gatewayCodeMatchesTheErrorCodeConstantInASwitch() {
+        server.enqueue(new MockResponse().setResponseCode(400).setBody(
+                "{\"ok\":false,\"error\":\"LABEL_TOO_LONG\","
+                        + "\"msg\":\"label is longer than 255 characters\"}"));
+        ApiException ex = assertThrows(ApiException.class,
+                () -> client.wallets().setLabel("0xabc", "x".repeat(300)));
+
+        String branch = switch (ex.code()) {
+            case ErrorCode.LABEL_TOO_LONG -> "label-too-long";
+            case ErrorCode.INVALID_PARAMS -> "invalid-params";
+            default -> "unmatched";
+        };
+        assertEquals("label-too-long", branch);
+    }
+
+    /** Relayed upstream refusals keep naming themselves in {@code msg}. */
+    @Test
+    void upstreamEnvelopeLiftsTheMsgTokenIntoCode() {
+        server.enqueue(new MockResponse().setResponseCode(404).setBody(
+                "{\"ok\":false,\"error\":\"SERVICE_ERROR\",\"msg\":\"wallet_not_found\"}"));
+        ApiException ex = assertThrows(ApiException.class,
+                () -> client.wallets().rebindMaster("0xabc", "0xdef"));
+
+        assertEquals("wallet_not_found", ex.code());
+        assertEquals("wallet_not_found", ex.description());
+        assertEquals(404, ex.status());
+        assertTrue(ex.raw().contains("SERVICE_ERROR"));
+    }
+
+    /** Nothing usable in {@code msg}: the generic marker is still better than nothing. */
+    @Test
+    void serviceErrorWithoutAMsgTokenKeepsTheGenericMarker() {
+        server.enqueue(new MockResponse().setResponseCode(500)
+                .setBody("{\"ok\":false,\"error\":\"SERVICE_ERROR\",\"msg\":\"\"}"));
+        server.enqueue(new MockResponse().setResponseCode(500)
+                .setBody("{\"ok\":false,\"error\":\"SERVICE_ERROR\",\"msg\":\"\"}"));
+        server.enqueue(new MockResponse().setResponseCode(500)
+                .setBody("{\"ok\":false,\"error\":\"SERVICE_ERROR\",\"msg\":\"\"}"));
+        ApiException ex = assertThrows(ApiException.class, () -> client.payouts().info("d"));
+        assertEquals(ErrorCode.SERVICE_ERROR, ex.code());
+    }
 }
