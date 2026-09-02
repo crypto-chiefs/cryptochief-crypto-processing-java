@@ -5,7 +5,6 @@ import com.cryptochief.processing.AssetsPolicy;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-@JsonInclude(JsonInclude.Include.NON_NULL)
 /**
  * The body of {@code /v1/payments/order/create}.
  *
@@ -20,6 +19,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * {@code ANY}, where the platform selects the asset and an unconstrained pick could put a
  * real payment on a test network. Null uses the project's own default.
  */
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public record CreatePayInRequest(
         @JsonProperty("order_id") String orderId,
         @JsonProperty("user_id") String userId,

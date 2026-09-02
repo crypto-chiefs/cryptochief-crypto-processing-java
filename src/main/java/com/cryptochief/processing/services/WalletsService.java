@@ -6,10 +6,12 @@ import com.cryptochief.processing.http.HttpTransport;
 import com.cryptochief.processing.models.AddressRequest;
 import com.cryptochief.processing.models.GenerateWalletRequest;
 import com.cryptochief.processing.models.ListWalletsResponse;
+import com.cryptochief.processing.models.PayInHistoryResponse;
 import com.cryptochief.processing.models.RebindMasterRequest;
 import com.cryptochief.processing.models.SetCallbackUrlRequest;
 import com.cryptochief.processing.models.SetLabelRequest;
 import com.cryptochief.processing.models.Wallet;
+import com.cryptochief.processing.models.WalletHistoryQuery;
 import com.cryptochief.processing.rsa.RsaDecrypt;
 
 import java.util.Map;
@@ -39,6 +41,26 @@ public final class WalletsService {
 
     public Wallet freeze(String address) {
         return transport.send("/v1/wallets/freeze", new AddressRequest(address), Wallet.class);
+    }
+
+    /**
+     * Every pay-in that used one deposit address - the same order records as
+     * {@link com.cryptochief.processing.services.PayInsService#history()}, narrowed to a
+     * single wallet. A deposit wallet can serve several orders over its lifetime, and this
+     * is the list of them.
+     *
+     * <p>The address is matched case-insensitively, so either spelling of an EVM address
+     * works. Only orders belonging to the project are returned: an address the project does
+     * not own yields an empty page rather than an error, so an empty result is not proof the
+     * address does not exist.
+     */
+    public PayInHistoryResponse history(WalletHistoryQuery query) {
+        return transport.send("/v1/wallets/history", query, PayInHistoryResponse.class);
+    }
+
+    /** As {@link #history(WalletHistoryQuery)}, first page, with no date filter. */
+    public PayInHistoryResponse history(String address) {
+        return history(WalletHistoryQuery.forAddress(address));
     }
 
     /**

@@ -5,20 +5,30 @@ import com.cryptochief.processing.ChainFamily;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 /**
  * One transit &rarr; master movement.
  *
  * <p>A sweep is broadcast first and confirmed after: {@link SweepStatus#BROADCASTED} means
  * the transaction is out and not yet confirmed, {@link SweepStatus#COMPLETED} means the
- * chain confirmed it, with {@code sweepConfirmations} and {@code completedAt} filled in.
- * The platform used to report {@code completed} at broadcast, so a sweep could read as
- * settled while its transaction was still unconfirmed or had been dropped.
+ * chain confirmed it, with {@code sweepConfirmations} above zero. The platform used to
+ * report {@code completed} at broadcast, so a sweep could read as settled while its
+ * transaction was still unconfirmed or had been dropped; the confirmation count is what
+ * separates the two.
+ *
+ * <p><strong>{@code completedAt} is not proof the sweep settled.</strong> The sweeper stamps
+ * it when the task reached a <em>terminal outcome</em> - {@link SweepStatus#FAILED} and
+ * {@link SweepStatus#SKIPPED} carry it as surely as {@link SweepStatus#COMPLETED} does. It
+ * is absent only while the sweep is still in flight, so reading its presence as "settled,
+ * therefore money received" books failures as income. Check {@code sweepConfirmations} is
+ * above zero, or take {@code confirmedAt} from the {@code sweep.confirmed} webhook - which
+ * exists as a separate field precisely because {@code completedAt} could not carry that
+ * meaning.
  *
  * <p>{@code gasFeeHuman}, {@code gasFeeFiat}, {@code serviceFeeFiat} and {@code updatedAt}
  * are never populated - they were guesses at a shape the API does not send. The fees it
  * does send are the {@code totalFeeUsd} / gas-pump / {@code real*} fields.
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record Sweep(
         @JsonProperty("task_id") String taskId,
         @JsonProperty("sweep_tx_hash") String sweepTxHash,

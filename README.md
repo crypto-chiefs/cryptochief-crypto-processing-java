@@ -14,7 +14,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 <dependency>
   <groupId>com.crypto-chief</groupId>
   <artifactId>cryptochief-crypto-processing-java</artifactId>
-  <version>0.6.0</version>
+  <version>0.7.0</version>
 </dependency>
 ```
 
@@ -22,7 +22,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 
 ```kotlin
 dependencies {
-    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.6.0")
+    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.7.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.6.0'
+    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.7.0'
 }
 ```
 
@@ -75,12 +75,12 @@ public class App {
 | `client.payouts()` | estimate, execute, info, history, batchEstimate, batchExecute |
 | `client.transactions()` | sign, execute, info, history + EVM/TRON/Solana/TON helpers |
 | `client.payIns()` | create, info, history, cancel, selectAsset, resetAsset |
-| `client.wallets()` | generate, list, info, freeze, rebindMaster, setCallbackUrl, clearCallbackUrl, setLabel, clearLabel, decryptPrivateKey |
-| `client.sweeps()` | force, history, walletHistory, settings, updateSettings |
+| `client.wallets()` | generate, list, info, history, freeze, rebindMaster, setCallbackUrl, clearCallbackUrl, setLabel, clearLabel, decryptPrivateKey |
+| `client.sweeps()` | force, history, walletHistory, settings, updateSettings, updateGasSource |
 | `client.withdrawals()` | info, history |
 | `client.staticDeposits()` | info, history |
-| `client.blockchain()` | contractsAvailable, walletBalance, transactionStatus |
-| `client.currencies()` | fiatToCrypto, cryptoToFiat |
+| `client.blockchain()` | contractsAvailable, contractsList, blockchains, walletBalance, transactionStatus |
+| `client.currencies()` | fiatToCrypto, cryptoToFiat, fiats, cryptos |
 | `client.credits()` | balance, topup |
 
 ## Invoices (PayIn)
@@ -172,6 +172,27 @@ All three calls return the wallet as it stands afterwards, so the new binding, U
 is visible without a second request. `masterWalletAddress()`, `callbackUrl()` and `label()`
 read as `null` when the wallet has none.
 
+`history` lists every pay-in that used one deposit address — useful when a payer says they
+sent funds and you have the address but not the order, since a deposit wallet can serve
+several orders over its lifetime:
+
+```java
+import com.cryptochief.processing.models.WalletHistoryQuery;
+
+var page = client.wallets().history(depositAddress);
+for (var order : page.items()) {
+    System.out.println(order.orderId() + " → " + order.status());
+}
+
+var window = client.wallets().history(new WalletHistoryQuery(
+    depositAddress, "2026-08-01T00:00:00+00:00", "2026-08-31T23:59:59+00:00", 1, 50));
+```
+
+The same order and `meta` records as `client.payIns().history()` — this is the same list,
+narrowed to one wallet. The address is matched case-insensitively, so either spelling of an
+EVM address works, and an address your project does not own yields an **empty page rather
+than an error**: an empty result is not proof the address does not exist.
+
 ## Auto-sweep settings
 
 A deposit wallet is swept to your master wallet on a policy: as soon as funds arrive, once
@@ -199,11 +220,143 @@ whether a value is yours or inherited.
 Inheritance is per field: writing the mode leaves the fee mode inherited. A `null` argument
 leaves a field alone; `SweepFieldWrite.inherit()` stops overriding it.
 
+### `fee_mode` — who covers a gas shortfall
+
+A deposit wallet that already holds enough of the chain's native coin pays for its own
+transfer, **whatever the mode**. `fee_mode` only decides where the missing gas comes from
+when it does not:
+
+| Value | Where the shortfall comes from |
+| ----- | ------------------------------ |
+| `SweepFeeMode.CLIENT` | Your own **master wallet**. |
+| `SweepFeeMode.SERVICE` | The platform — and the cost is **billed to your API credits**. |
+| `SweepFeeMode.MIX` | **The default.** Tries `client` first, falls back to `service` when the master wallet cannot cover it. |
+
+So `service`, and every `mix` sweep that falls back to it, spends API credits rather than
+on-chain balance — a cost that shows up on the credits ledger and nowhere in the wallet.
+
+### `gas_source` — who buys the energy on TRON
+
+`gas_source` decides *what is bought* to move a sweep on TRON, where `fee_mode` decides *who
+covers a gas shortfall*. The two are independent, and the energy is billed to your API
+credits whatever the fee mode says.
+
+| Value | What happens |
+| ----- | ------------ |
+| `SweepGasSource.NATIVE` | The wallet burns its own TRX for energy. |
+| `SweepGasSource.RENTED` | The platform supplies the energy, billed to your API credits. **The default.** |
+
+> **Not setting it is not the same as setting `native`.** A wallet that never chose one gets
+> the platform default, which is `rented` — so energy is supplied and billed to your credits
+> without anyone having switched it on. To have the wallet burn its own TRX, send `native`
+> explicitly.
+
+```java
+import com.cryptochief.processing.models.SweepGasSource;
+
+client.sweeps().updateGasSource(tronAddress,
+    SweepFieldWrite.set(SweepGasSource.NATIVE));   // burn the wallet's own TRX
+
+client.sweeps().updateGasSource(tronAddress,
+    SweepFieldWrite.inherit());                    // drop the override and inherit again
+```
+
+`inherit()` names `gas_source` in the `fields` mask with no value, which is the only way to
+clear one field while keeping the others — and it inherits back to `rented`, not to "off".
+The mask accepts `type_work`, `threshold_amount_usd`, `fee_mode` and `gas_source`.
+
+Read it back with `effective().gasSource()`, which is always a concrete value. A `null` in
+`override().gasSource()` means only that this layer does not decide — inherited, **not**
+switched off.
+
+Carried and ignored on every chain other than TRON.
+
+### Sweep history
+
 A sweep is broadcast first and confirmed after: `SweepStatus.BROADCASTED` means the
 transaction is out and not yet confirmed, `SweepStatus.COMPLETED` means confirmed, with
-`sweepConfirmations()` and `completedAt()` filled in. Earlier platform versions reported
-`completed` at broadcast, so a sweep could read as settled while its transaction was still
-unconfirmed.
+`sweepConfirmations()` above zero. Earlier platform versions reported `completed` at
+broadcast, so a sweep could read as settled while its transaction was still unconfirmed;
+the confirmation count is what separates the two.
+
+**`completedAt()` is not proof the sweep settled.** It is stamped when the task reached a
+terminal outcome, and `failed` and `skipped` are terminal too — so it is absent only while
+the sweep is in flight, and its presence says the sweep finished rather than that it
+succeeded. Check `sweepConfirmations()` is above zero, or take `confirmedAt()` from the
+`sweep.confirmed` webhook, which carries a separate field for exactly this reason.
+
+Both history endpoints filter on `status` and `search` as well as `mode`:
+
+```java
+import com.cryptochief.processing.models.SweepHistoryQuery;
+import com.cryptochief.processing.models.SweepStatus;
+import com.cryptochief.processing.models.SweepWalletHistoryQuery;
+
+var failed = client.sweeps().history(SweepHistoryQuery.empty()
+    .withStatus(SweepStatus.FAILED)
+    .withSearch("0x77EDde3213b70c9dd224C874c28f41B23B070f65"));
+
+var one = client.sweeps().walletHistory(SweepWalletHistoryQuery.forAddress(depositAddress)
+    .withStatus(SweepStatus.COMPLETED));
+```
+
+`status` takes one status. Leave it out and **every** status comes back, `skipped` among
+them — a skipped sweep is a balance the platform decided against moving, a normal outcome
+rather than a failure, and easy to be surprised by in a total. `search` is a substring match:
+on `history` it matches the wallet address, the sweep or gas-pump transaction hash and the
+`task_id`; on `walletHistory` the hashes and the `task_id`, since the address is already the
+question.
+
+## Blockchain data
+
+`contractsAvailable` is the project's own asset catalogue — what it can be paid in right now,
+and the list that governs orders, sweeps and payouts. `contractsList` is the platform-wide
+one: every coin and token the platform supports anywhere, for building a "which assets could
+we turn on" picker. Same item shape:
+
+```java
+for (var asset : client.blockchain().contractsList().items()) {
+    System.out.println(asset.network() + " " + asset.coin()
+        + " family=" + asset.chainFamily()
+        + " test=" + asset.isTest()
+        + " decimals=" + asset.decimals());
+}
+```
+
+`contract()` is an **empty string** for a native coin, not null — there is no contract to
+name. `isTest()` marks an asset on a test network, which is what tells a worthless payment
+from a real one when the platform picks the asset for you.
+
+`blockchains` is a different question: which chains the scanner is connected to and can read
+blocks from right now. Infrastructure, not your catalogue. It answers with a bare JSON array,
+so there is no envelope to unwrap:
+
+```java
+for (var chain : client.blockchain().blockchains()) {
+    System.out.println(chain.name() + " read as " + chain.type());   // ETH_MAINNET read as evm
+}
+```
+
+`type()` is the scanner's own lower-case spelling of the protocol family (`evm`, `tron`,
+`solana`), not the upper-case `ChainFamily` used elsewhere in the API.
+
+## Currency lists
+
+What can be quoted, for building a currency picker:
+
+```java
+for (var fiat : client.currencies().fiats()) {
+    System.out.println(fiat.code() + " — " + fiat.name());   // SEK — Swedish Krona
+}
+
+var cryptos = client.currencies().cryptos();
+System.out.println(cryptos.count() + " tickers against " + cryptos.quote());
+System.out.println(cryptos.byExchange().get("binance"));
+```
+
+`fiats()` are the codes `fiatToCrypto` and a pay-in's `currency` accept. `cryptos()` is rate
+availability only — a ticker listed there is one the platform can price, which does not mean
+your project can be paid in it. For that, use `client.blockchain().contractsAvailable()`.
 
 ## Contract calls
 

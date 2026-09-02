@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /** Internal HTTP pipeline: signs each request, retries 5xx + transport failures, parses error envelope. */
@@ -63,6 +64,22 @@ public final class HttpTransport {
         } catch (JsonProcessingException e) {
             throw new DecodeException("cryptochief: decode " + path + " response: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Sign, send, decode a list-shaped answer, and hand back an empty list where the service
+     * answered with literal JSON {@code null}.
+     *
+     * <p>Several endpoints are served by Go handlers that build their result with a nil
+     * slice, which marshals as {@code null} rather than {@code []} when nothing matched.
+     * {@code /v1/blockchains/list} and {@code /v1/currencies/fiats} are two of them. A method
+     * whose signature promises a {@code List} must return an empty one for that body - never
+     * {@code null}, and never a decode failure - so callers can iterate the answer without
+     * asking whether "no rows" arrived as absence or as emptiness.
+     */
+    public <T> List<T> sendList(String path, Object body, TypeReference<List<T>> responseType) {
+        List<T> decoded = send(path, body, responseType);
+        return decoded == null ? List.of() : decoded;
     }
 
     /** Sign, send, decode into a generic type. */

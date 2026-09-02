@@ -10,6 +10,12 @@ package com.cryptochief.processing.models;
  *
  * <p>{@link #SKIPPED} is a sweep the platform decided against - almost always a balance
  * below the wallet's threshold. A normal outcome, not a failure.
+ *
+ * <p>{@link #COMPLETED}, {@link #FAILED} and {@link #SKIPPED} are the terminal outcomes, and
+ * {@code Sweep.completedAt()} is stamped on all three - so it says the sweep finished, not
+ * that it succeeded. The settlement signal is {@link #COMPLETED} with
+ * {@code sweepConfirmations} above zero, or {@code confirmedAt} on the {@code sweep.confirmed}
+ * webhook.
  */
 public final class SweepStatus {
 

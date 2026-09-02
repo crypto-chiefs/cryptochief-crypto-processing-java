@@ -5,7 +5,17 @@ import com.fasterxml.jackson.annotation.JsonValue;
 
 import java.util.Objects;
 
-/** Chain code — the {@code network} / {@code chain} / {@code network_code} string used across the API. */
+/**
+ * Chain code — the {@code network} / {@code chain} / {@code network_code} string used across
+ * the API.
+ *
+ * <p>Compare with {@link #equals(Object)}, never with {@code ==}. This is an open class, not
+ * an enum: a chain decoded off the wire is a fresh instance from {@link #of(String)}, so
+ * reference comparison against a constant never matches. It <em>does</em> hold between two
+ * constants, which is why a test written with literals passes while the same code fails on a
+ * real response. Put the constant first — {@code Chain.ETH_MAINNET.equals(row.network())} —
+ * so an absent value cannot throw.
+ */
 public final class Chain {
 
     public static final Chain ETH_MAINNET = new Chain("ETH_MAINNET");

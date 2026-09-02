@@ -3,6 +3,7 @@ package com.cryptochief.processing;
 import com.cryptochief.processing.models.GenerateWalletRequest;
 import com.cryptochief.processing.models.ListWalletsResponse;
 import com.cryptochief.processing.models.Wallet;
+import com.cryptochief.processing.models.WalletHistoryQuery;
 import com.cryptochief.processing.models.WalletType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -279,6 +280,64 @@ class WalletsServiceTest {
         assertEquals("Treasury", listed.items().get(0).label());
         assertEquals("Acme Corp - EU", listed.items().get(1).label());
         assertNull(listed.items().get(2).label());
+    }
+
+    @Test
+    void walletHistoryReadsBackTheSameOrdersPayInHistoryDoes() throws Exception {
+        server.enqueue(new MockResponse().setBody("""
+                {"items":[
+                  {"uuid":"0a1b2c3d-4e5f-6789-abcd-ef0123456789","order_id":"invoice-1002",
+                   "status":"paid","amount_crypto":"10.5","payment_coin":"USDT",
+                   "payment_network":"TRON_MAINNET","to_address":"TQrY8bYc2yQ8sM8nJ1sZ9c2Zx7L2wq7pQb"}
+                ],"meta":{"page":1,"page_size":20,"total":1}}
+                """));
+
+        var out = client.wallets().history("TQrY8bYc2yQ8sM8nJ1sZ9c2Zx7L2wq7pQb");
+
+        RecordedRequest recorded = server.takeRequest();
+        assertEquals("POST", recorded.getMethod());
+        assertEquals("/v1/wallets/history", recorded.getPath());
+        assertEquals("mer_test", recorded.getHeader("Merchant"));
+        assertEquals("{\"address\":\"TQrY8bYc2yQ8sM8nJ1sZ9c2Zx7L2wq7pQb\"}",
+                recorded.getBody().readUtf8());
+
+        // The same order records as PayIn history, through the same types - a wallet is just
+        // a narrower question about them.
+        var order = out.items().get(0);
+        assertEquals("invoice-1002", order.orderId());
+        assertEquals("paid", order.status());
+        assertTrue(order.succeeded());
+        assertEquals("10.5", order.amountCrypto());
+        assertEquals("USDT", order.paymentCoin());
+        assertEquals(Chain.TRON_MAINNET, order.paymentNetwork());
+        assertEquals(1, out.meta().page());
+        assertEquals(20, out.meta().pageSize());
+        assertEquals(1, out.meta().total());
+    }
+
+    @Test
+    void walletHistorySendsTheDateWindowAndPagingUnderTheirWireNames() throws Exception {
+        server.enqueue(new MockResponse().setBody("{\"items\":[],\"meta\":{\"page\":2,\"page_size\":50,\"total\":0}}"));
+
+        client.wallets().history(new WalletHistoryQuery(
+                "0xABCdef", "2026-08-01T00:00:00+00:00", "2026-08-31T23:59:59+00:00", 2, 50));
+
+        assertEquals("{\"address\":\"0xABCdef\",\"date_from\":\"2026-08-01T00:00:00+00:00\","
+                + "\"date_to\":\"2026-08-31T23:59:59+00:00\",\"page\":2,\"page_size\":50}",
+                server.takeRequest().getBody().readUtf8());
+    }
+
+    @Test
+    void anAddressYouDoNotOwnIsAnEmptyPageRatherThanAnError() throws Exception {
+        server.enqueue(new MockResponse().setBody(
+                "{\"items\":[],\"meta\":{\"page\":1,\"page_size\":20,\"total\":0}}"));
+
+        var out = client.wallets().history("0xsomebodyelses");
+
+        // No exception, no null items: an empty page says nothing about whether the address
+        // exists, only that none of its orders are yours.
+        assertTrue(out.items().isEmpty());
+        assertEquals(0, out.meta().total());
     }
 
     @Test

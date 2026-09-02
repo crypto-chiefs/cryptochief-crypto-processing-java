@@ -9,9 +9,11 @@ import java.util.List;
 /**
  * The body of {@code /v1/sweeps/settings/update}.
  *
- * <p>{@code fields} names what this call is writing. A field listed there but absent from
- * the body is being cleared - which is the only way to drop one field while keeping the
- * others. Built by {@link com.cryptochief.processing.services.SweepsService}; callers pass
+ * <p>{@code fields} names what this call is writing, and accepts {@code type_work},
+ * {@code threshold_amount_usd}, {@code fee_mode} and {@code gas_source}. A field listed
+ * there but absent from the body is being cleared - which is the only way to drop one field
+ * while keeping the others. Built by
+ * {@link com.cryptochief.processing.services.SweepsService}; callers pass
  * {@link SweepFieldWrite} values instead.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -21,5 +23,6 @@ public record SweepSettingsUpdateRequest(
         @JsonProperty("fields") List<String> fields,
         @JsonProperty("type_work") String typeWork,
         @JsonProperty("threshold_amount_usd") String thresholdAmountUsd,
-        @JsonProperty("fee_mode") String feeMode
+        @JsonProperty("fee_mode") String feeMode,
+        @JsonProperty("gas_source") String gasSource
 ) {}
