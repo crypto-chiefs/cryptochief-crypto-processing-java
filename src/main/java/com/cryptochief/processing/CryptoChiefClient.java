@@ -7,6 +7,7 @@ import com.cryptochief.processing.services.CurrenciesService;
 import com.cryptochief.processing.services.PayInsService;
 import com.cryptochief.processing.services.PayoutsService;
 import com.cryptochief.processing.services.StaticDepositsService;
+import com.cryptochief.processing.services.WebhooksService;
 import com.cryptochief.processing.services.SweepsService;
 import com.cryptochief.processing.services.TransactionsService;
 import com.cryptochief.processing.services.WalletsService;
@@ -29,6 +30,7 @@ public final class CryptoChiefClient implements AutoCloseable {
     private final BlockchainService blockchain;
     private final CurrenciesService currencies;
     private final CreditsService credits;
+    private final WebhooksService webhooks;
 
     private volatile TonRpcClient tonRpc;
 
@@ -45,6 +47,7 @@ public final class CryptoChiefClient implements AutoCloseable {
         this.blockchain = new BlockchainService(transport);
         this.currencies = new CurrenciesService(transport);
         this.credits = new CreditsService(transport);
+        this.webhooks = new WebhooksService(transport);
     }
 
     public static CryptoChiefClient create(String merchantId, String apiKey) {
@@ -68,6 +71,7 @@ public final class CryptoChiefClient implements AutoCloseable {
     public BlockchainService blockchain() { return blockchain; }
     public CurrenciesService currencies() { return currencies; }
     public CreditsService credits() { return credits; }
+    public WebhooksService webhooks() { return webhooks; }
 
     public TonRpcClient tonRpc() {
         TonRpcClient local = tonRpc;

@@ -106,4 +106,15 @@ public final class ErrorCode {
     public static final String SWEEP_SETTINGS_LOCKED = "SWEEP_SETTINGS_LOCKED";
 
     private ErrorCode() {}
+
+    /** The object does not exist OR is not this project's - deliberately indistinguishable. */
+    public static final String NOT_FOUND = "NOT_FOUND";
+    /** Webhook resend: a newer event exists for the same object; only the latest may be resent. Permanent. */
+    public static final String DELIVERY_SUPERSEDED = "DELIVERY_SUPERSEDED";
+    /** Webhook resend: a worker holds the delivery, or it is already scheduled for a retry. */
+    public static final String DELIVERY_IN_FLIGHT = "DELIVERY_IN_FLIGHT";
+    /** Webhook resend: resent under a minute ago (HTTP 429, Retry-After). */
+    public static final String RESEND_TOO_SOON = "RESEND_TOO_SOON";
+    /** Static-deposit resend: no webhook was ever queued - the wallet had no callback_url. */
+    public static final String NO_DELIVERIES = "NO_DELIVERIES";
 }

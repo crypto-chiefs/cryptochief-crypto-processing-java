@@ -14,6 +14,14 @@ public final class WebhookVerifier {
 
     public static final String HEADER = "Signature";
 
+    /**
+     * Header carrying the delivery's uuid on every webhook the platform sends. Constant across
+     * every attempt and resend of one delivery - use it as your receiver's idempotency key - and
+     * the argument {@code client.webhooks().info()} / {@code resend()} take. Keep it when you log
+     * an incoming webhook: there is no other way to name a delivery later.
+     */
+    public static final String DELIVERY_HEADER = "X-Webhook-Delivery";
+
     public static final List<String> SENDER_IPS = List.of("164.90.231.203", "104.248.248.64");
 
     private WebhookVerifier() {}
