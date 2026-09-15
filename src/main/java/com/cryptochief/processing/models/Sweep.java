@@ -8,21 +8,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 /**
  * One transit &rarr; master movement.
  *
- * <p>A sweep is broadcast first and confirmed after: {@link SweepStatus#BROADCASTED} means
- * the transaction is out and not yet confirmed, {@link SweepStatus#COMPLETED} means the
- * chain confirmed it, with {@code sweepConfirmations} above zero. The platform used to
- * report {@code completed} at broadcast, so a sweep could read as settled while its
- * transaction was still unconfirmed or had been dropped; the confirmation count is what
- * separates the two.
+ * <p>While a sweep is {@link SweepStatus#BROADCASTED}, {@code sweepConfirmations} grows. At
+ * {@code requiredConfirmations}, the finality depth of its network, the sweep becomes
+ * {@link SweepStatus#COMPLETED}. Settled: status {@code completed} and {@code sweepConfirmations}
+ * above zero, or the {@code sweep.confirmed} webhook. On older records {@code completed} can
+ * have {@code 0} and is then not settled. A count above zero alone is not enough: a
+ * {@code broadcasted} sweep has one too.
  *
- * <p><strong>{@code completedAt} is not proof the sweep settled.</strong> The sweeper stamps
- * it when the task reached a <em>terminal outcome</em> - {@link SweepStatus#FAILED} and
- * {@link SweepStatus#SKIPPED} carry it as surely as {@link SweepStatus#COMPLETED} does. It
- * is absent only while the sweep is still in flight, so reading its presence as "settled,
- * therefore money received" books failures as income. Check {@code sweepConfirmations} is
- * above zero, or take {@code confirmedAt} from the {@code sweep.confirmed} webhook - which
- * exists as a separate field precisely because {@code completedAt} could not carry that
- * meaning.
+ * <p>{@code completedAt} is when the sweep transaction was sent (for
+ * {@link SweepStatus#WAITING_GAS}, {@link SweepStatus#FAILED} and {@link SweepStatus#SKIPPED},
+ * when that status was recorded). It is not a settlement signal.
  *
  * <p>{@code gasFeeHuman}, {@code gasFeeFiat}, {@code serviceFeeFiat} and {@code updatedAt}
  * are never populated - they were guesses at a shape the API does not send. The fees it
@@ -42,6 +37,7 @@ public record Sweep(
         @JsonProperty("amount_human") String amountHuman,
         @JsonProperty("type_work") String typeWork,
         @JsonProperty("sweep_confirmations") Integer sweepConfirmations,
+        @JsonProperty("required_confirmations") Integer requiredConfirmations,
         @JsonProperty("completed_at") String completedAt,
         @JsonProperty("total_fee_usd") String totalFeeUsd,
         @JsonProperty("gas_pump_source") String gasPumpSource,
@@ -61,4 +57,21 @@ public record Sweep(
         @JsonProperty("gas_fee_fiat") String gasFeeFiat,
         @JsonProperty("service_fee_fiat") String serviceFeeFiat,
         @JsonProperty("updated_at") String updatedAt
-) {}
+) {
+    /** The 0.8.0 constructor; {@code requiredConfirmations} is {@code null}. */
+    public Sweep(String taskId, String sweepTxHash, String gasPumpTxHash, String status,
+                 String walletAddress, Chain chain, ChainFamily chainFamily, String assetSymbol,
+                 String assetType, String amountHuman, String typeWork, Integer sweepConfirmations,
+                 String completedAt, String totalFeeUsd, String gasPumpSource,
+                 String gasPumpFeeHuman, String gasPumpFeeUsd, String sweepFeeHuman,
+                 String sweepFeeUsd, String realGasPumpFeeHuman, String realGasPumpFeeUsd,
+                 String realSweepFeeHuman, String realSweepFeeUsd, String createdAt,
+                 String gasFeeHuman, String gasFeeFiat, String serviceFeeFiat, String updatedAt) {
+        this(taskId, sweepTxHash, gasPumpTxHash, status, walletAddress, chain, chainFamily,
+                assetSymbol, assetType, amountHuman, typeWork, sweepConfirmations, null,
+                completedAt, totalFeeUsd, gasPumpSource, gasPumpFeeHuman, gasPumpFeeUsd,
+                sweepFeeHuman, sweepFeeUsd, realGasPumpFeeHuman, realGasPumpFeeUsd,
+                realSweepFeeHuman, realSweepFeeUsd, createdAt, gasFeeHuman, gasFeeFiat,
+                serviceFeeFiat, updatedAt);
+    }
+}

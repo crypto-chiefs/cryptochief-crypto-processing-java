@@ -8,6 +8,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * Funds swept off a deposit wallet, confirmed on chain. Event name
  * {@code sweep.confirmed} - the only sweep event the platform emits.
  *
+ * <p>Sent when {@code sweepConfirmations} reaches {@code requiredConfirmations} and the
+ * sweep turns {@code completed}.
+ *
  * <p>There is deliberately no {@code sweep.broadcasted}: "we sent it" is not
  * something you can act on, and an event that means "maybe" is one more thing to
  * reconcile.
@@ -31,15 +34,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * @param assetType          {@code native} or {@code token}
  * @param gasPumpTxHash      set when the platform had to fund gas on the wallet
  *                           before it could sweep
- * @param sweepConfirmations what makes this event true rather than hopeful, and
- *                           never zero; it travels with the event rather than
- *                           being implied by it, because "confirmed" is not the
- *                           same number on every chain and your own finality
- *                           policy needs the count to apply it
- * @param confirmedAt        when the chain was observed to hold the sweep; NOT
- *                           the task's completion timestamp, which is stamped on
- *                           every terminal outcome including failures and so
- *                           says nothing about settlement
+ * @param sweepConfirmations the count the sweep completed at
+ * @param requiredConfirmations the finality depth of the network
+ * @param confirmedAt        when the sweep was observed at {@code requiredConfirmations};
+ *                           not {@code Sweep.completedAt()}, which is the send time
  * @param typeWork           what triggered it: {@code momentum}, {@code
  *                           threshold} or {@code force}
  * @param totalFeeUsd        what the sweep cost: network fee plus any gas or
@@ -62,10 +60,23 @@ public record SweepWebhookEvent(
         @JsonProperty("sweep_tx_hash") String sweepTxHash,
         @JsonProperty("gas_pump_tx_hash") String gasPumpTxHash,
         @JsonProperty("sweep_confirmations") int sweepConfirmations,
+        @JsonProperty("required_confirmations") Integer requiredConfirmations,
         @JsonProperty("confirmed_at") String confirmedAt,
         @JsonProperty("type_work") String typeWork,
         @JsonProperty("total_fee_usd") String totalFeeUsd
 ) {
     /** The only sweep event the platform emits. */
     public static final String EVENT_CONFIRMED = "sweep.confirmed";
+
+    /** The 0.8.0 constructor; {@code requiredConfirmations} is {@code null}. */
+    public SweepWebhookEvent(String event, String taskId, String status, String walletAddress,
+                             String toAddress, Chain network, String chainFamily,
+                             String assetSymbol, String assetContract, String assetType,
+                             String amountRaw, String amountHuman, String sweepTxHash,
+                             String gasPumpTxHash, int sweepConfirmations, String confirmedAt,
+                             String typeWork, String totalFeeUsd) {
+        this(event, taskId, status, walletAddress, toAddress, network, chainFamily, assetSymbol,
+                assetContract, assetType, amountRaw, amountHuman, sweepTxHash, gasPumpTxHash,
+                sweepConfirmations, null, confirmedAt, typeWork, totalFeeUsd);
+    }
 }

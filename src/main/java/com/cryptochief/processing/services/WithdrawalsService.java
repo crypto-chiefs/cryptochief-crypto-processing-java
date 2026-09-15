@@ -6,7 +6,7 @@ import com.cryptochief.processing.models.UuidRequest;
 import com.cryptochief.processing.models.Withdrawal;
 import com.cryptochief.processing.models.WithdrawalHistoryResponse;
 
-/** Read-only withdrawal endpoints. */
+/** Read-only withdrawal endpoints. Withdrawals have no webhooks. */
 public final class WithdrawalsService {
 
     private final HttpTransport transport;

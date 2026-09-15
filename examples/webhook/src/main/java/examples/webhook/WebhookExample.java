@@ -29,7 +29,10 @@ public final class WebhookExample {
             try {
                 PayoutWebhookEvent event = WebhookVerifier.parse(apiKey, body, signature,
                         PayoutWebhookEvent.class);
-                System.out.println("payout webhook: uuid=" + event.uuid() + " status=" + event.status());
+                // payout.paid is sent once every source reaches requiredConfirmations.
+                System.out.println("payout webhook: uuid=" + event.uuid() + " status=" + event.status()
+                        + " confirmations=" + event.confirmations()
+                        + " required=" + event.requiredConfirmations());
                 exchange.sendResponseHeaders(200, 2);
                 exchange.getResponseBody().write("ok".getBytes());
                 exchange.close();
@@ -46,10 +49,10 @@ public final class WebhookExample {
         // Sweep - your money finishing its move into your own custody.
         //
         // A static_deposit.paid told you a customer paid. THIS says the funds
-        // have been swept off the deposit address and the sweep is confirmed on
-        // chain. Until it fires the balance still sits on the deposit wallet, so
-        // treasury reporting and "available to pay out" should key off this, not
-        // the deposit. Sweeps run on static deposit wallets and on per-order
+        // have been swept off the deposit address and the sweep reached
+        // requiredConfirmations. Until it fires the balance still sits on the deposit
+        // wallet, so treasury reporting and "available to pay out" should key off
+        // this, not the deposit. Sweeps run on static deposit wallets and on per-order
         // transit wallets alike; both arrive here.
         server.createContext("/webhook/sweep", exchange -> {
             if (!"POST".equals(exchange.getRequestMethod())) {
@@ -67,6 +70,7 @@ public final class WebhookExample {
                         + event.walletAddress() + " -> " + event.toAddress()
                         + " tx=" + event.sweepTxHash()
                         + " confirmations=" + event.sweepConfirmations()
+                        + "/" + event.requiredConfirmations()
                         + " trigger=" + event.typeWork()
                         + " fee_usd=" + event.totalFeeUsd());
 
@@ -74,9 +78,7 @@ public final class WebhookExample {
                 // it twice means a redelivery - acknowledge and stop.
                 // if (treasury.alreadyRecorded(event.taskId())) { ... }
 
-                // The event only ever arrives confirmed, but apply your own
-                // finality policy here if you have one - "confirmed" is not the
-                // same number on every chain.
+                // The event arrives only once the sweep is settled.
                 // treasury.recordSettled(event.taskId(), event.assetSymbol(),
                 //         event.amountHuman(), event.sweepTxHash());
                 // costs.record(event.taskId(), event.totalFeeUsd());  // sweeps are not free

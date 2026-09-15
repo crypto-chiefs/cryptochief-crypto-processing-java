@@ -16,14 +16,19 @@ public final class Polling {
 
     private Polling() {}
 
+    /**
+     * Polls a payout until it is terminal. A payout stays {@code confirm_check} until every
+     * source reaches {@code requiredConfirmations}. On timeout returns the last answer.
+     */
     public static PayoutInfo waitForPayout(CryptoChiefClient client, String uuid, PollOptions options) {
         return pollUntilTerminal(options,
                 () -> client.payouts().info(uuid),
                 PayoutInfo::isTerminal);
     }
 
+    /** {@link #waitForPayout(CryptoChiefClient, String, PollOptions)} with {@link PollOptions#payoutDefaults()}: 90 min timeout. */
     public static PayoutInfo waitForPayout(CryptoChiefClient client, String uuid) {
-        return waitForPayout(client, uuid, PollOptions.defaults());
+        return waitForPayout(client, uuid, PollOptions.payoutDefaults());
     }
 
     public static TransactionInfo waitForTransaction(CryptoChiefClient client, String uuid, PollOptions options) {

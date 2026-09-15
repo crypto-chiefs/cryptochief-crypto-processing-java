@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.9.0] — 2026-09-15
+
+- **Breaking:** the canonical constructors of `PayoutInfo`, `PayoutSource`, `Sweep`, `TransactionInfo`, `Withdrawal`, `PayoutWebhookEvent`, `SweepWebhookEvent` and `TransactionWebhookEvent` gained components mid-list; the 0.8.0 constructors remain as overloads, record patterns must list the new components
+- `requiredConfirmations()` on `Sweep`, `SweepWebhookEvent`, `PayoutInfo`, `PayoutWebhookEvent`, `TransactionInfo`, `TransactionWebhookEvent` and `Withdrawal`: the depth at which a payout becomes `paid`, a transaction `confirmed`, a sweep or withdrawal `completed`
+- `confirmations()` on `PayoutInfo` (lowest among sources), `PayoutSource`, `PayoutWebhookEvent`, `TransactionInfo` and `TransactionWebhookEvent`
+- `PayoutInfo.serviceOperations()` and the new `PayoutServiceOperation` record
+- `PayoutSource` gained `network`, `amountCrypto`, `amountCryptoRaw`, `needRefuel`, `refuelAmount`, `refuelAmountRaw`, `estimatedFee`, `estimatedFeeFiat`, `feePaid`, `feePaidFiat`, `txid`; `amount()` is never populated, read `amountCrypto()`
+- `Withdrawal` gained `needRefuel`, `refuelTxHash`, `refuelStatus`, `confirmations`, `requiredConfirmations`, `errorReason`, `estimatedFeeFiat`, `actualFeeFiat`, `feeMode`, `completedAt`, `isTerminal()`, `succeeded()`
+- `WithdrawalStatus` — status constants for `Withdrawal.status()`; `CANCELLED` is deprecated, the API does not return it
+- `Withdrawal.contract()`, `amountFiat()`, `updatedAt()`, `confirmedAt()` and `error()` are never populated: read `completedAt()` and `errorReason()`
+- `payouts().info()` and `history()` no longer fail on payout sources carrying fields beyond `address`, `amount` and `coin`
+- A sweep is settled when its status is `SweepStatus.COMPLETED` and `sweepConfirmations() > 0`, or on the `sweep.confirmed` webhook; `sweepConfirmations() > 0` alone is not enough
+- `Sweep.completedAt()` is the send time, not a settlement signal
+- `Polling.waitForPayout(client, uuid)` defaults to a 90 min timeout, `PollOptions.payoutDefaults()`
+
 ## [0.8.0] — 2026-09-03
 
 The platform's outbound webhooks become something you can read and re-fire, and every

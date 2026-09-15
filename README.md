@@ -14,7 +14,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 <dependency>
   <groupId>com.crypto-chief</groupId>
   <artifactId>cryptochief-crypto-processing-java</artifactId>
-  <version>0.8.0</version>
+  <version>0.9.0</version>
 </dependency>
 ```
 
@@ -22,7 +22,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 
 ```kotlin
 dependencies {
-    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.8.0")
+    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.9.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.8.0'
+    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.9.0'
 }
 ```
 
@@ -77,7 +77,7 @@ public class App {
 | `client.payIns()` | create, info, history, cancel, selectAsset, resetAsset |
 | `client.wallets()` | generate, list, info, history, freeze, rebindMaster, setCallbackUrl, clearCallbackUrl, setLabel, clearLabel, decryptPrivateKey |
 | `client.sweeps()` | force, history, walletHistory, settings, updateSettings, updateGasSource |
-| `client.withdrawals()` | info, history |
+| `client.withdrawals()` | info, history (read-only, see [Withdrawals](#withdrawals)) |
 | `client.staticDeposits()` | info, history |
 | `client.blockchain()` | contractsAvailable, contractsList, blockchains, walletBalance, transactionStatus |
 | `client.currencies()` | fiatToCrypto, cryptoToFiat, fiats, cryptos |
@@ -273,17 +273,24 @@ Carried and ignored on every chain other than TRON.
 
 ### Sweep history
 
-A sweep is broadcast first and confirmed after: `SweepStatus.BROADCASTED` means the
-transaction is out and not yet confirmed, `SweepStatus.COMPLETED` means confirmed, with
-`sweepConfirmations()` above zero. Earlier platform versions reported `completed` at
-broadcast, so a sweep could read as settled while its transaction was still unconfirmed;
-the confirmation count is what separates the two.
+While a sweep is `SweepStatus.BROADCASTED`, `sweepConfirmations()` grows. When it reaches
+`requiredConfirmations()` the sweep becomes `SweepStatus.COMPLETED` and `sweep.confirmed` is
+sent. Settled: status `completed` and `sweepConfirmations()` above zero. On older records
+`completed` can have `0` and is then not settled. A count above zero alone is not enough: a
+`broadcasted` sweep has one too.
 
-**`completedAt()` is not proof the sweep settled.** It is stamped when the task reached a
-terminal outcome, and `failed` and `skipped` are terminal too — so it is absent only while
-the sweep is in flight, and its presence says the sweep finished rather than that it
-succeeded. Check `sweepConfirmations()` is above zero, or take `confirmedAt()` from the
-`sweep.confirmed` webhook, which carries a separate field for exactly this reason.
+```java
+for (var s : client.sweeps().history().items()) {
+    boolean settled = SweepStatus.COMPLETED.equals(s.status())
+        && s.sweepConfirmations() != null && s.sweepConfirmations() > 0;
+    System.out.println(s.taskId() + " " + s.status() + " "
+        + s.sweepConfirmations() + "/" + s.requiredConfirmations()
+        + (settled ? " settled" : ""));
+}
+```
+
+`completedAt()` is when the sweep transaction was sent (for `waiting_gas`, `failed` and
+`skipped`, when that status was recorded). It is not a settlement signal.
 
 Both history endpoints filter on `status` and `search` as well as `mode`:
 
@@ -306,6 +313,46 @@ rather than a failure, and easy to be surprised by in a total. `search` is a sub
 on `history` it matches the wallet address, the sweep or gas-pump transaction hash and the
 `task_id`; on `walletHistory` the hashes and the `task_id`, since the address is already the
 question.
+
+## Withdrawals
+
+Withdrawals are read-only: `info(uuid)` returns `Withdrawal`, `history()` returns a page of them
+in `items()`. There are no withdrawal webhooks. `status()` is one of the `WithdrawalStatus` values:
+
+| Status | Meaning |
+| ------ | ------- |
+| `queue` | Accepted, waiting to be processed |
+| `refueling` | The source wallet is being topped up with native coin for gas |
+| `refuel_confirmed` | Gas is in place or was not needed |
+| `sending` | The transaction is being built, signed and sent |
+| `broadcasting` | EVM: queued for broadcast |
+| `in_mempool` | Bitcoin family: in the mempool, not yet in a block |
+| `confirm_check` | Sent, waiting for `requiredConfirmations()` |
+| `completed` | Reached `requiredConfirmations()`. Terminal |
+| `failed` | Did not go through; `errorReason()` says why. Terminal |
+
+`WithdrawalStatus.CANCELLED` is not produced by the API.
+
+`confirmations()` is optional, absent until the transaction is in a block.
+`requiredConfirmations()` is always present.
+
+```java
+import com.cryptochief.processing.models.WithdrawalStatus;
+
+var w = client.withdrawals().info(withdrawalUuid);
+if (w.succeeded()) {
+    System.out.println("settled at " + w.completedAt() + " tx " + w.txHash());
+} else if (WithdrawalStatus.CONFIRM_CHECK.equals(w.status())) {
+    System.out.println(w.confirmations() == null
+        ? "sent, waiting for its first block"
+        : "settling: " + w.confirmations() + " of " + w.requiredConfirmations());
+} else if (w.isTerminal()) {
+    System.out.println(w.status() + ": " + w.errorReason());
+}
+```
+
+`history()` applies only page, page size and `date_from` / `date_to` (RFC 3339); `status`,
+`coin` and `network` on `HistoryQuery` are ignored.
 
 ## Blockchain data
 
@@ -436,7 +483,46 @@ import com.cryptochief.processing.poll.Polling;
 import java.time.Duration;
 
 var terminal = Polling.waitForPayout(client, payout.uuid(),
-    new PollOptions(Duration.ofSeconds(5), Duration.ofMinutes(10)));
+    new PollOptions(Duration.ofSeconds(5), Duration.ofMinutes(90)));
+```
+
+| Helper | Default timeout |
+| ------ | --------------- |
+| `waitForPayout` | 90 min. The payout stays `confirm_check` until every source reaches `requiredConfirmations()` |
+| `waitForTransaction`, `waitForPayIn` | 10 min |
+
+On timeout a helper returns the last answer, or throws if it got none.
+
+### Confirmation counts
+
+A sign/execute transaction always has `confirmations()` and `requiredConfirmations()`, in
+execute, info, history and `transaction.*` webhooks. `confirmations()` is `0` until the
+transaction is in a block and grows while it is `broadcasted`. At `requiredConfirmations()`
+the transaction becomes `confirmed`. `transaction.*` webhooks are sent for final statuses only.
+
+A payout has `confirmations()`, the lowest count among its sources, and
+`requiredConfirmations()`. Each `PayoutSource` and `PayoutServiceOperation` has its own
+`confirmations()`. All of them are optional. The payout stays `confirm_check` until every
+source reaches `requiredConfirmations()`, then becomes `paid` and `payout.paid` is sent.
+
+Settlement is the status: `confirmed` for a transaction, `paid` for a payout.
+
+```java
+import com.cryptochief.processing.models.TxStatus;
+
+// On timeout waitForTransaction returns the last answer.
+var tx = Polling.waitForTransaction(client, signed.uuid());
+if (tx.succeeded()) {
+    System.out.println("confirmed at " + tx.confirmations() + " of " + tx.requiredConfirmations());
+} else if (TxStatus.BROADCASTED.equals(tx.status())) {
+    System.out.println("in the network: " + tx.confirmations() + " of " + tx.requiredConfirmations());
+}
+
+var p = client.payouts().info(payout.uuid());
+if (!p.succeeded() && p.confirmations() != null && p.requiredConfirmations() != null) {
+    System.out.println("settling: least-confirmed source at "
+        + p.confirmations() + " of " + p.requiredConfirmations());
+}
 ```
 
 ## Webhook handling
@@ -449,7 +535,9 @@ import com.cryptochief.processing.webhook.WebhookVerifier;
 try {
     var event = WebhookVerifier.parse(apiKey, rawBody,
         request.getHeader("Signature"), PayoutWebhookEvent.class);
-    System.out.println("payout " + event.uuid() + " → " + event.status());
+    System.out.println("payout " + event.uuid() + " → " + event.status()
+        + " confirmations=" + event.confirmations()
+        + " required=" + event.requiredConfirmations());
 } catch (WebhookSignatureException e) {
     response.setStatus(401);
 }
@@ -520,7 +608,7 @@ try {
 } catch (ApiException e) {
     switch (e.code()) {
         case ErrorCode.INSUFFICIENT_FUNDS -> { /* top up the master wallet */ }
-        case ErrorCode.ORDER_ALREADY_EXIST -> { /* idempotent retry */ }
+        case ErrorCode.INSUFFICIENT_CREDITS -> { /* top up API credits */ }
         default -> throw e;
     }
 } catch (NetworkException e) {

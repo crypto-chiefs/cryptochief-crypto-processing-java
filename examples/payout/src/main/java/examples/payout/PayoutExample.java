@@ -39,9 +39,12 @@ public final class PayoutExample {
             System.out.println("created: uuid=" + payout.uuid() + " status=" + payout.status());
 
             PayoutInfo terminal = Polling.waitForPayout(client, payout.uuid(),
-                    new PollOptions(Duration.ofSeconds(5), Duration.ofMinutes(5)));
+                    new PollOptions(Duration.ofSeconds(5), Duration.ofMinutes(90)));
             System.out.println("final:   status=" + terminal.status()
-                    + " txid=" + (terminal.txid() == null ? "" : terminal.txid()));
+                    + " txid=" + (terminal.txid() == null ? "" : terminal.txid())
+                    // Lowest count among the sources.
+                    + " confirmations=" + terminal.confirmations()
+                    + " required=" + terminal.requiredConfirmations());
         }
     }
 

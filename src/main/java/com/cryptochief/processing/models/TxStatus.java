@@ -5,6 +5,7 @@ import java.util.Set;
 public final class TxStatus {
     public static final String SIGNED = "signed";
     public static final String BROADCASTING = "broadcasting";
+    /** Sent; {@code confirmations} grows towards {@code requiredConfirmations}. */
     public static final String BROADCASTED = "broadcasted";
     public static final String CONFIRMED = "confirmed";
     public static final String FAILED = "failed";
