@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * it clears the webhook.
  *
  * <p>Which is why null is turned into an empty string here instead of being left alone. The
- * canonical encoder drops nulls, so a null would take {@code callback_url} off the wire
+ * request encoder drops nulls, so a null would take {@code callback_url} off the wire
  * entirely - a malformed request, not the "stop announcing deposits" the caller meant. This
  * endpoint has no third state to express: it always writes the value it is handed.
  */

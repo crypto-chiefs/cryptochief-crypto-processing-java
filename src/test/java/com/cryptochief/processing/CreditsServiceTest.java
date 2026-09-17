@@ -1,5 +1,6 @@
 package com.cryptochief.processing;
 
+import com.cryptochief.processing.http.RequestSigner;
 import com.cryptochief.processing.models.CreditsTopupRequest;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -9,8 +10,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.util.Base64;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -52,7 +51,7 @@ class CreditsServiceTest {
         assertEquals("/v1/credits/balance", recorded.getPath());
         assertEquals("mer_test", recorded.getHeader("Merchant"));
         assertEquals("{}", recorded.getBody().readUtf8());
-        assertEquals(expectedSignature("{}", "secret-key"), recorded.getHeader("Signature"));
+        assertSigned(recorded, "{}");
     }
 
     @Test
@@ -84,7 +83,7 @@ class CreditsServiceTest {
         assertEquals("mer_test", recorded.getHeader("Merchant"));
         String body = recorded.getBody().readUtf8();
         assertEquals("{\"amount\":\"25\",\"currency\":\"USDT\"}", body);
-        assertEquals(expectedSignature(body, "secret-key"), recorded.getHeader("Signature"));
+        assertSigned(recorded, body);
         assertEquals(9001L, topup.invoiceId());
         assertEquals("https://pay.cryptochief.io/topup/abc", topup.paymentLink());
         assertEquals("25", topup.amount());
@@ -109,7 +108,7 @@ class CreditsServiceTest {
         assertEquals("{\"amount\":\"100000\",\"currency\":\"USDC\","
                 + "\"url_error\":\"https://your.app/topup/fail\","
                 + "\"url_success\":\"https://your.app/topup/ok\"}", body);
-        assertEquals(expectedSignature(body, "secret-key"), recorded.getHeader("Signature"));
+        assertSigned(recorded, body);
         assertEquals(9002L, topup.invoiceId());
         assertEquals("https://pay.cryptochief.io/topup/def", topup.paymentLink());
         assertEquals("100000", topup.amount());
@@ -119,13 +118,12 @@ class CreditsServiceTest {
         assertEquals(1755529200L, topup.expiredAt());
     }
 
-    private static String expectedSignature(String canonical, String key) throws Exception {
-        String b64 = Base64.getEncoder().encodeToString(canonical.getBytes(StandardCharsets.UTF_8));
-        MessageDigest md5 = MessageDigest.getInstance("MD5");
-        md5.update((b64 + key).getBytes(StandardCharsets.UTF_8));
-        byte[] digest = md5.digest();
-        StringBuilder hex = new StringBuilder();
-        for (byte b : digest) hex.append(String.format("%02x", b & 0xFF));
-        return hex.toString();
+    private static void assertSigned(RecordedRequest recorded, String body) {
+        assertNull(recorded.getHeader("Signature"));
+        String expected = RequestSigner.signHmacV1("secret-key", recorded.getHeader(RequestSigner.HEADER_TIMESTAMP),
+                recorded.getHeader(RequestSigner.HEADER_NONCE), recorded.getMethod(),
+                recorded.getRequestUrl().encodedPath(), "", "mer_test", null,
+                body.getBytes(StandardCharsets.UTF_8));
+        assertEquals("v1=" + expected, recorded.getHeader(RequestSigner.HEADER_HMAC_SIGNATURE));
     }
 }

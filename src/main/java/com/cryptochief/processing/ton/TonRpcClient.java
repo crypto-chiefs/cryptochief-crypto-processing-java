@@ -1,7 +1,7 @@
 package com.cryptochief.processing.ton;
 
 import com.cryptochief.processing.exceptions.NetworkException;
-import com.cryptochief.processing.http.CanonicalJson;
+import com.cryptochief.processing.http.Json;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -63,7 +63,7 @@ public final class TonRpcClient {
         try {
             HttpUrl url = jettonWalletsUrl(jettonMaster, owner);
             String body = get(url.toString());
-            JsonNode root = CanonicalJson.MAPPER.readTree(body);
+            JsonNode root = Json.MAPPER.readTree(body);
             JsonNode wallets = root.get("jetton_wallets");
             return wallets != null && wallets.isArray() && wallets.size() > 0;
         } catch (Exception e) {
@@ -75,7 +75,7 @@ public final class TonRpcClient {
         Cell ownerCell = new CellBuilder().storeAddress(TonAddress.parse(owner)).endCell();
         String ownerBoc = Base64.getEncoder().encodeToString(ownerCell.toBoc());
 
-        ObjectNode payload = CanonicalJson.MAPPER.createObjectNode();
+        ObjectNode payload = Json.MAPPER.createObjectNode();
         payload.put("address", jettonMaster);
         payload.put("method", "get_wallet_address");
         ArrayNode stack = payload.putArray("stack");
@@ -83,8 +83,8 @@ public final class TonRpcClient {
         slice.put("type", "slice");
         slice.put("value", ownerBoc);
         try {
-            String text = post("/runGetMethod", CanonicalJson.MAPPER.writeValueAsString(payload));
-            JsonNode response = CanonicalJson.MAPPER.readTree(text);
+            String text = post("/runGetMethod", Json.MAPPER.writeValueAsString(payload));
+            JsonNode response = Json.MAPPER.readTree(text);
             JsonNode exitCode = response.get("exit_code");
             if (exitCode != null && exitCode.isInt() && exitCode.asInt() != 0) {
                 throw new NetworkException("ton/runGetMethod: exit_code=" + exitCode.asInt());
@@ -99,7 +99,7 @@ public final class TonRpcClient {
         HttpUrl url = jettonWalletsUrl(jettonMaster, owner);
         String body = get(url.toString());
         try {
-            JsonNode root = CanonicalJson.MAPPER.readTree(body);
+            JsonNode root = Json.MAPPER.readTree(body);
             JsonNode wallets = root.get("jetton_wallets");
             if (wallets == null || !wallets.isArray() || wallets.isEmpty()) {
                 throw new NetworkException(

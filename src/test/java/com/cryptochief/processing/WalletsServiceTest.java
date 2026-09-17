@@ -179,7 +179,7 @@ class WalletsServiceTest {
         client.wallets().clearCallbackUrl("0xstatic");
 
         // "" is how this endpoint spells "clear it". Dropping the field - which the
-        // canonical encoder does to nulls - would be a malformed request instead.
+        // request encoder does to nulls - would be a malformed request instead.
         assertEquals("{\"address\":\"0xstatic\",\"callback_url\":\"\"}",
                 server.takeRequest().getBody().readUtf8());
     }
@@ -234,7 +234,7 @@ class WalletsServiceTest {
         Wallet out = client.wallets().clearLabel("0xtransit");
 
         // "" is how this endpoint spells "clear it". Dropping the field - which the
-        // canonical encoder does to nulls - would be a malformed request instead.
+        // request encoder does to nulls - would be a malformed request instead.
         assertEquals("{\"address\":\"0xtransit\",\"label\":\"\"}",
                 server.takeRequest().getBody().readUtf8());
         // And the wallet comes back nameless: null, not the "" that was sent.

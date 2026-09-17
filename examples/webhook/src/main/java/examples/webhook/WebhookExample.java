@@ -2,7 +2,7 @@ package examples.webhook;
 
 import com.cryptochief.processing.webhook.PayoutWebhookEvent;
 import com.cryptochief.processing.webhook.SweepWebhookEvent;
-import com.cryptochief.processing.webhook.WebhookSignatureException;
+import com.cryptochief.processing.webhook.WebhookVerificationException;
 import com.cryptochief.processing.webhook.WebhookVerifier;
 import com.sun.net.httpserver.HttpServer;
 
@@ -24,20 +24,23 @@ public final class WebhookExample {
                 exchange.close();
                 return;
             }
+            // Raw bytes: the signature covers the body exactly as sent.
             byte[] body = exchange.getRequestBody().readAllBytes();
-            String signature = exchange.getRequestHeaders().getFirst("Signature");
+            String deliveryId = exchange.getRequestHeaders().getFirst(WebhookVerifier.DELIVERY_HEADER);
             try {
-                PayoutWebhookEvent event = WebhookVerifier.parse(apiKey, body, signature,
+                // Checks X-CC-Timestamp, X-Webhook-Delivery and X-CC-Signature.
+                PayoutWebhookEvent event = WebhookVerifier.parse(apiKey, body, exchange.getRequestHeaders(),
                         PayoutWebhookEvent.class);
                 // payout.paid is sent once every source reaches requiredConfirmations.
-                System.out.println("payout webhook: uuid=" + event.uuid() + " status=" + event.status()
+                System.out.println("payout webhook " + deliveryId + ": uuid=" + event.uuid()
+                        + " status=" + event.status()
                         + " confirmations=" + event.confirmations()
                         + " required=" + event.requiredConfirmations());
                 exchange.sendResponseHeaders(200, 2);
                 exchange.getResponseBody().write("ok".getBytes());
                 exchange.close();
-            } catch (WebhookSignatureException e) {
-                System.err.println("rejected: " + e.getMessage());
+            } catch (WebhookVerificationException e) {
+                System.err.println("rejected " + deliveryId + ": " + e.getMessage());
                 exchange.sendResponseHeaders(401, -1);
                 exchange.close();
             } catch (Exception e) {
@@ -61,9 +64,8 @@ public final class WebhookExample {
                 return;
             }
             byte[] body = exchange.getRequestBody().readAllBytes();
-            String signature = exchange.getRequestHeaders().getFirst("Signature");
             try {
-                SweepWebhookEvent event = WebhookVerifier.parse(apiKey, body, signature,
+                SweepWebhookEvent event = WebhookVerifier.parse(apiKey, body, exchange.getRequestHeaders(),
                         SweepWebhookEvent.class);
                 System.out.println("sweep " + event.taskId() + ": "
                         + event.amountHuman() + " " + event.assetSymbol() + " "
@@ -86,7 +88,7 @@ public final class WebhookExample {
                 exchange.sendResponseHeaders(200, 2);
                 exchange.getResponseBody().write("ok".getBytes());
                 exchange.close();
-            } catch (WebhookSignatureException e) {
+            } catch (WebhookVerificationException e) {
                 System.err.println("rejected: " + e.getMessage());
                 exchange.sendResponseHeaders(401, -1);
                 exchange.close();

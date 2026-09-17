@@ -529,19 +529,63 @@ if (!p.succeeded() && p.confirmations() != null && p.requiredConfirmations() != 
 
 ```java
 import com.cryptochief.processing.webhook.PayoutWebhookEvent;
-import com.cryptochief.processing.webhook.WebhookSignatureException;
+import com.cryptochief.processing.webhook.WebhookVerificationException;
 import com.cryptochief.processing.webhook.WebhookVerifier;
 
+byte[] rawBody = request.getInputStream().readAllBytes(); // before any JSON parsing
+
 try {
-    var event = WebhookVerifier.parse(apiKey, rawBody,
-        request.getHeader("Signature"), PayoutWebhookEvent.class);
+    var event = WebhookVerifier.parse(apiKey, rawBody, request::getHeader, PayoutWebhookEvent.class);
     System.out.println("payout " + event.uuid() + " → " + event.status()
         + " confirmations=" + event.confirmations()
         + " required=" + event.requiredConfirmations());
-} catch (WebhookSignatureException e) {
+} catch (WebhookVerificationException e) {
     response.setStatus(401);
 }
 ```
+
+Headers:
+
+| Header | Value |
+|---|---|
+| `X-Webhook-Delivery` | delivery id, 1–128 characters `[A-Za-z0-9_-]`; the same on every attempt and resend of one delivery |
+| `X-CC-Timestamp` | Unix time of the attempt, seconds; decimal digits without a leading zero |
+| `X-CC-Signature` | `v1=<64 hex>` |
+
+String to sign, lines joined with `\n`, no trailing newline:
+
+```
+CC-HMAC-SHA256-WEBHOOK-V1
+<X-CC-Timestamp>
+<X-Webhook-Delivery>
+<lowercase hex SHA-256 of the raw body>
+```
+
+`X-CC-Signature = "v1=" + lowercase hex HMAC-SHA256(key = api_key, message = string to sign)`
+
+`verify` and `parse` take the raw body bytes and either a header lookup (`Function<String, String>`, e.g. `request::getHeader`) or a header map (`Map<String, ?>` with `String`, `String[]` or `Collection<String>` values, e.g. `com.sun.net.httpserver.Headers` or Spring `HttpHeaders`). Header names are case-insensitive in ASCII letters (in a header map U+212A also matches `k` and U+017F matches `s`, other non-ASCII characters match nothing); spaces and tabs around values are ignored. A repeated header is detected only through a header map.
+
+| Exception | Reason |
+|---|---|
+| `WebhookHeadersException` | a header is missing, repeated or malformed |
+| `WebhookTimestampException` | `X-CC-Timestamp` differs from the current time by more than the tolerance (300 s) |
+| `WebhookSignatureException` | signature mismatch, compared in constant time |
+
+All three extend `WebhookVerificationException`; answer 401. An empty `apiKey` throws `IllegalArgumentException`. `parse` throws `DecodeException` when a verified body does not decode into the event type.
+
+```java
+import java.time.Clock;
+import java.time.Duration;
+import com.cryptochief.processing.webhook.WebhookOptions;
+
+WebhookVerifier.verify(apiKey, rawBody, headers, WebhookOptions.defaults()
+    .withTolerance(Duration.ofSeconds(600))
+    .withClock(Clock.systemUTC()));
+```
+
+A redelivery arrives with the same `X-Webhook-Delivery` and a new `X-CC-Timestamp`; deduplicate by `X-Webhook-Delivery`.
+
+`RequestSigner.signWebhookV1(apiKey, timestamp, deliveryId, body)` and `RequestSigner.webhookV1StringToSign(timestamp, deliveryId, body)` produce the signature, e.g. for tests.
 
 IP allowlist:
 
@@ -594,7 +638,74 @@ var client = new CryptoChiefClient(Options.builder()
     .build());
 ```
 
-A caller-supplied `httpClient` is not closed by the SDK.
+A caller-supplied `httpClient` is not closed by the SDK. Its interceptors run after the request is
+signed, so one that changes the URL, the body, `Merchant` or `Idempotency-Key` makes the signature
+wrong and the request is refused with `INVALID_SIGNATURE`.
+
+## Request signing
+
+Every request is signed with HMAC-SHA256 v1.
+
+| Header | Value |
+|---|---|
+| `Merchant` | merchant id |
+| `X-CC-Timestamp` | Unix time, seconds |
+| `X-CC-Nonce` | 32 hex chars, new per attempt |
+| `X-CC-Signature` | `v1=<64 hex>` |
+
+String to sign, lines joined with `\n`, no trailing newline:
+
+```
+CC-HMAC-SHA256-REQ-V1
+<X-CC-Timestamp>
+<X-CC-Nonce>
+<METHOD>
+<path>
+<query without "?", or empty>
+<Merchant>
+<Idempotency-Key, or empty>
+<lowercase hex SHA-256 of the body bytes>
+```
+
+`X-CC-Signature = "v1=" + lowercase hex HMAC-SHA256(key = api_key, message = string to sign)`
+
+`path` is the route (`/v1/payout/execute`) without the base URL prefix, percent-decoded as the server reads it: `/v1/orders/payout%2F8814` is sent escaped and signed as `/v1/orders/payout/8814`. `query` is the raw string the URL carries. The body is the exact bytes sent: the request serialised with Jackson, without `null` properties and `null` map values, integers and decimals written exactly. Timestamp, nonce and signature are computed on every attempt. On `SIGNATURE_TIMESTAMP_OUT_OF_RANGE` the client sets its clock offset from `server_time` and repeats the request once.
+
+`METHOD` has its `a-z` upper-cased; every other byte goes in as it is. An `apiKey` that is empty or
+only spaces and tabs is no key: signing and verifying both refuse it.
+
+`client.withIdempotencyKey(key)` returns a client that sends `Idempotency-Key` on every call it
+makes, inside the signature; the value must be printable ASCII with no space at either edge. Payout
+idempotency is `ExecutePayoutRequest.orderId()` — the header only labels the billing record.
+
+`client.request(method, path, body, type)` sends a signed request with the method spelled out, for a
+route the SDK has no method for; a `GET` takes a query on `path` and no body.
+
+```java
+record Balance(String credits) {}
+var balance = client.request("GET", "/v1/balance", null, Balance.class);
+
+client.withIdempotencyKey("payout-2026-09-16-0001").payouts().execute(req);
+```
+
+To sign a request the SDK does not send itself:
+
+```java
+import com.cryptochief.processing.http.RequestSigner;
+import java.time.Instant;
+
+// byte[] body: the exact bytes sent
+String timestamp = Long.toString(Instant.now().getEpochSecond());
+String nonce = RequestSigner.newNonce();
+String sig = RequestSigner.HMAC_V1_PREFIX + RequestSigner.signHmacV1(apiKey, timestamp, nonce, "POST",
+    "/v1/payout/info", "", merchantId, "", body);
+// POST <base URL>/v1/payout/info with body and headers:
+//   Merchant: merchantId
+//   X-CC-Timestamp: timestamp
+//   X-CC-Nonce: nonce
+//   X-CC-Signature: sig
+//   Content-Type: application/json
+```
 
 ## Errors
 
@@ -616,7 +727,18 @@ try {
 }
 ```
 
-5xx is retried with exponential backoff and full jitter. 4xx is not retried.
+`code()` is read from both error formats:
+
+| Format | Code | `description()` |
+|---|---|---|
+| Gateway: `{"ok":false,"error":"<CODE>","msg":"..."}` | `error`; `msg` when `error` is `SERVICE_ERROR` | `msg` |
+| White-label: `{"data":null,"error":{"status":...,"name":...,"message":"...","details":{"code":"<CODE>"}}}` | `error.details.code`, else `error.name` | `error.message` |
+
+Without a code, `code()` is `HTTP_<status>`.
+
+5xx is retried with exponential backoff and full jitter. 4xx is not retried. The exception is
+one repeat after `SIGNATURE_TIMESTAMP_OUT_OF_RANGE`, with the clock offset taken from
+`server_time`.
 
 ## Other SDKs
 

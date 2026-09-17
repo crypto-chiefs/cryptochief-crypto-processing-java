@@ -1,7 +1,7 @@
 package com.cryptochief.processing.webhook;
 
-/** Signature header did not match the body. */
-public class WebhookSignatureException extends RuntimeException {
+/** {@code X-CC-Signature} does not match the body, timestamp and delivery id. */
+public class WebhookSignatureException extends WebhookVerificationException {
     public WebhookSignatureException(String message) {
         super(message);
     }

@@ -13,6 +13,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CurrenciesServiceTest {
@@ -54,7 +55,8 @@ class CurrenciesServiceTest {
         assertEquals("/v1/currencies/fiats", recorded.getPath());
         assertEquals("mer_test", recorded.getHeader("Merchant"));
         assertEquals("{}", recorded.getBody().readUtf8());
-        assertNotNull(recorded.getHeader("Signature"));
+        assertNotNull(recorded.getHeader("X-CC-Signature"));
+        assertNull(recorded.getHeader("Signature"));
 
         assertEquals(3, fiats.size());
         assertEquals("JMD", fiats.get(0).code());

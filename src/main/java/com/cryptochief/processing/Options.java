@@ -1,5 +1,6 @@
 package com.cryptochief.processing;
 
+import com.cryptochief.processing.http.RequestSigner;
 import okhttp3.OkHttpClient;
 
 import java.security.interfaces.RSAPrivateKey;
@@ -28,7 +29,8 @@ public final class Options {
         Objects.requireNonNull(b.merchantId, "merchantId");
         Objects.requireNonNull(b.apiKey, "apiKey");
         if (b.merchantId.isBlank()) throw new IllegalArgumentException("merchantId is required");
-        if (b.apiKey.isBlank()) throw new IllegalArgumentException("apiKey is required");
+        // Blank by the signing rule: empty, or spaces and tabs only. A key of " " is not a secret.
+        if (RequestSigner.isBlankKey(b.apiKey)) throw new IllegalArgumentException("apiKey is required");
         if (b.baseUrl == null || b.baseUrl.isBlank()) throw new IllegalArgumentException("baseUrl is required");
         if (b.maxRetries < 0) throw new IllegalArgumentException("maxRetries cannot be negative");
 

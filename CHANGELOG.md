@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.10.0] — 2026-09-17
+
+- **Breaking:** requests are signed only with HMAC-SHA256 v1 (`X-CC-Timestamp`, `X-CC-Nonce`, `X-CC-Signature`), recomputed on every attempt; the `Signature` header and `RequestSigner.sign()` are removed; `RequestSigner.hmacV1StringToSign()` / `signHmacV1()`
+- One repeat with corrected clock offset on `SIGNATURE_TIMESTAMP_OUT_OF_RANGE`
+- **Breaking:** `CanonicalJson` is removed; request bodies are sent as `Json.MAPPER` serialises them (no `null` properties or `null` map values, exact integers and decimals); `Json.MAPPER` replaces `CanonicalJson.MAPPER`
+- **Breaking:** webhooks are verified with HMAC-SHA256 v1 over the raw body: `X-CC-Timestamp`, `X-Webhook-Delivery`, `X-CC-Signature`, tolerance 300 s. `WebhookVerifier.verify(apiKey, rawBody, header, [options])` takes a header lookup or a header map and throws `WebhookHeadersException`, `WebhookTimestampException` or `WebhookSignatureException`, all extending the new `WebhookVerificationException`; `parse(apiKey, rawBody, header, [options], eventType)` verifies the same way. `WebhookVerifier.HEADER`, `requireValid()` and `boolean verify(apiKey, body, signature)` are removed
+- `WebhookVerifier.TIMESTAMP_HEADER`, `SIGNATURE_HEADER`, `DEFAULT_TOLERANCE`; `WebhookOptions` with tolerance and clock; `RequestSigner.signWebhookV1()` / `webhookV1StringToSign()`
+- `client.withIdempotencyKey(key)` — a client that sends `Idempotency-Key` on every call it makes, covered by the signature; the value must be printable ASCII with no space at either edge
+- `client.request(method, path, body, type)` and `request(method, path, body)` — a signed request with the method spelled out, for a route the SDK has no method for; `HttpTransport.request()` / `requestRaw()` behind them. A `GET` or `HEAD` carries no body and no `Content-Type`
+- The path is signed percent-decoded, as the server reads it: `/v1/orders/payout%2F8814` goes on the wire escaped and is signed as `/v1/orders/payout/8814`. The query is signed as the URL carries it. `RequestSigner.decodePath()`
+- `METHOD` upper-cases `a-z` only and leaves every other byte alone; a non-ASCII method is signed rather than rejected. `RequestSigner.upperAsciiMethod()`
+- An api key that is empty or only spaces and tabs is treated as absent by `Options`, `RequestSigner` and `WebhookVerifier`. `RequestSigner.isBlankKey()`
+- `ErrorCode.BAD_AUTH_HEADERS`, `SIGNATURE_TIMESTAMP_OUT_OF_RANGE`, `SIGNATURE_REPLAYED`, `PAYLOAD_TOO_LARGE`
+- `ApiException.code()` reads `error.details.code`, else `error.name`, and `description()` reads `error.message` from the white-label error format; clock correction reads `server_time` from it
+
 ## [0.9.0] — 2026-09-15
 
 - **Breaking:** the canonical constructors of `PayoutInfo`, `PayoutSource`, `Sweep`, `TransactionInfo`, `Withdrawal`, `PayoutWebhookEvent`, `SweepWebhookEvent` and `TransactionWebhookEvent` gained components mid-list; the 0.8.0 constructors remain as overloads, record patterns must list the new components

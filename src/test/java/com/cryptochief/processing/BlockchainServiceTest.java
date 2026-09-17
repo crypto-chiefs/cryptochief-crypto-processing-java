@@ -14,6 +14,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BlockchainServiceTest {
@@ -75,7 +76,8 @@ class BlockchainServiceTest {
         assertEquals("mer_test", recorded.getHeader("Merchant"));
         // Nothing to filter by, but the empty body is still signed like any other request.
         assertEquals("{}", recorded.getBody().readUtf8());
-        assertNotNull(recorded.getHeader("Signature"));
+        assertNotNull(recorded.getHeader("X-CC-Signature"));
+        assertNull(recorded.getHeader("Signature"));
 
         assertEquals(4, chains.size());
         assertEquals(Chain.ETH_MAINNET, chains.get(0).name());

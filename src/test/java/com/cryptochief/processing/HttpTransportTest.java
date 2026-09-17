@@ -13,6 +13,7 @@ import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,7 +50,8 @@ class HttpTransportTest {
         client.payouts().info("abc");
         RecordedRequest recorded = server.takeRequest();
         assertEquals("mer_test", recorded.getHeader("Merchant"));
-        assertNotNull(recorded.getHeader("Signature"));
+        assertNotNull(recorded.getHeader("X-CC-Signature"));
+        assertNull(recorded.getHeader("Signature"));
         assertEquals("application/json", recorded.getHeader("Content-Type"));
         assertEquals("application/json", recorded.getHeader("Accept"));
         assertTrue(recorded.getHeader("User-Agent").startsWith("cryptochief-java/"));
@@ -94,6 +96,47 @@ class HttpTransportTest {
         ApiException ex3 = assertThrows(ApiException.class, () -> client.payouts().info("c"));
         assertEquals("HTTP_418", ex3.code());
         assertEquals(418, ex3.status());
+    }
+
+    @Test
+    void parsesWhiteLabelEnvelope() {
+        server.enqueue(new MockResponse().setResponseCode(404).setBody("{\"data\":null,\"error\":{"
+                + "\"status\":404,\"name\":\"NotFoundError\",\"message\":\"wallet not found\","
+                + "\"details\":{\"code\":\"NOT_FOUND\"}}}"));
+        ApiException ex1 = assertThrows(ApiException.class, () -> client.payouts().info("a"));
+        assertEquals(ErrorCode.NOT_FOUND, ex1.code());
+        assertEquals("wallet not found", ex1.description());
+        assertEquals(404, ex1.status());
+
+        server.enqueue(new MockResponse().setResponseCode(403).setBody("{\"data\":null,\"error\":{"
+                + "\"status\":403,\"name\":\"ForbiddenError\",\"message\":\"Forbidden\",\"details\":{}}}"));
+        ApiException ex2 = assertThrows(ApiException.class, () -> client.payouts().info("b"));
+        assertEquals("ForbiddenError", ex2.code());
+        assertEquals("Forbidden", ex2.description());
+
+        server.enqueue(new MockResponse().setResponseCode(409).setBody("{\"data\":null,\"error\":{"
+                + "\"status\":409,\"message\":\"Conflict\"}}"));
+        ApiException ex3 = assertThrows(ApiException.class, () -> client.payouts().info("c"));
+        assertEquals("HTTP_409", ex3.code());
+        assertEquals("Conflict", ex3.description());
+
+        assertEquals(3, server.getRequestCount());
+    }
+
+    @Test
+    void whiteLabelEnvelopeWithoutDetailsCodeUsesErrorName() {
+        server.enqueue(new MockResponse().setResponseCode(401).setBody("{\"data\":null,\"error\":{"
+                + "\"status\":401,\"name\":\"UnauthorizedError\",\"message\":\"Invalid signature\",\"details\":{}}}"));
+        ApiException unauthorized = assertThrows(ApiException.class, () -> client.payouts().info("a"));
+        assertEquals("UnauthorizedError", unauthorized.code());
+        assertEquals("Invalid signature", unauthorized.description());
+        assertEquals(401, unauthorized.status());
+
+        server.enqueue(new MockResponse().setResponseCode(400).setBody("{\"data\":null,\"error\":{"
+                + "\"status\":400,\"name\":\"ValidationError\",\"message\":\"Invalid\",\"details\":{\"code\":\"\"}}}"));
+        ApiException validation = assertThrows(ApiException.class, () -> client.payouts().info("b"));
+        assertEquals("ValidationError", validation.code());
+        assertEquals(400, validation.status());
     }
 
     /**

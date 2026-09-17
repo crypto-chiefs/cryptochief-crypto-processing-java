@@ -8,7 +8,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * clears the name.
  *
  * <p>Which is why null is turned into an empty string here instead of being left alone. The
- * canonical encoder drops nulls, so a null would take {@code label} off the wire entirely -
+ * request encoder drops nulls, so a null would take {@code label} off the wire entirely -
  * a malformed request, not the "this wallet has no name" the caller meant. The endpoint has
  * no third state to express: it always writes the value it is handed.
  *

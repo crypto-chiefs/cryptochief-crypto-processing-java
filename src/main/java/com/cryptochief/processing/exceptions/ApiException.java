@@ -19,7 +19,7 @@ public class ApiException extends CryptoChiefException {
     /**
      * The machine-readable code, and the one field to branch on.
      *
-     * <p>The wire has two envelope shapes and this resolves both. A refusal the gateway
+     * <p>The gateway has two envelope shapes and this resolves both. A refusal the gateway
      * decided itself names itself in {@code error} and puts an English sentence in
      * {@code msg} - {@code {"error":"LABEL_TOO_LONG","msg":"label is longer than 255
      * characters"}} - and the code is {@code LABEL_TOO_LONG}. A refusal relayed from an
@@ -27,6 +27,11 @@ public class ApiException extends CryptoChiefException {
      * {@code msg} - {@code {"error":"SERVICE_ERROR","msg":"wallet_not_found"}} - and the
      * code is {@code wallet_not_found}. Either way one switch over {@link ErrorCode}
      * constants and upstream tokens is enough.
+     *
+     * <p>A white-label installation answers {@code {"data":null,"error":{"status":...,
+     * "name":...,"message":"...","details":{"code":"<CODE>"}}}}; the code is
+     * {@code error.details.code}, else {@code error.name}, and {@link #description()} is
+     * {@code error.message}.
      *
      * <p>Falls back to {@code HTTP_<status>} when the body carries neither field.
      */

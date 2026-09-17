@@ -3,11 +3,12 @@ package com.cryptochief.processing.exceptions;
 /**
  * Known stable error code strings used in {@link ApiException#code()}.
  *
- * <p>Two envelope shapes reach this one field. When the gateway names the refusal itself the
+ * <p>Two gateway envelope shapes reach this one field. When the gateway names the refusal itself the
  * code is in {@code error}; when {@code error} is the generic {@code SERVICE_ERROR} of a
  * refusal relayed from an upstream service, the code is in {@code msg}. Constants below come
  * from both, which is why {@link #WALLET_NOT_FOUND} and {@link #SWEEP_SETTINGS_LOCKED} sit
- * beside {@link #INVALID_PARAMS}.
+ * beside {@link #INVALID_PARAMS}. A white-label installation puts the code in
+ * {@code error.details.code}.
  *
  * <p>Not the whole set: some upstream refusals carry their own lower-case tokens
  * ({@code master_wallet_frozen}, ...) and reach {@link ApiException#code()} the same way.
@@ -17,8 +18,17 @@ public final class ErrorCode {
 
     // --- Request envelope and transport -------------------------------------------------
     public static final String INVALID_PARAMS = "INVALID_PARAMS";
+    /** HTTP 400: {@code Merchant} or an {@code X-CC-*} header is missing, repeated or malformed. */
+    public static final String BAD_AUTH_HEADERS = "BAD_AUTH_HEADERS";
+    /** HTTP 401: {@code X-CC-Signature} does not match. */
     public static final String INVALID_SIGNATURE = "INVALID_SIGNATURE";
     public static final String SIGNATURE_EXPIRED = "SIGNATURE_EXPIRED";
+    /** HTTP 401: {@code X-CC-Timestamp} is more than 300 s from server time. The client corrects its clock offset and repeats the request once. */
+    public static final String SIGNATURE_TIMESTAMP_OUT_OF_RANGE = "SIGNATURE_TIMESTAMP_OUT_OF_RANGE";
+    /** HTTP 401: {@code X-CC-Nonce} was already used. */
+    public static final String SIGNATURE_REPLAYED = "SIGNATURE_REPLAYED";
+    /** HTTP 413: request body exceeds the endpoint limit. */
+    public static final String PAYLOAD_TOO_LARGE = "PAYLOAD_TOO_LARGE";
     public static final String UNAUTHORIZED = "UNAUTHORIZED";
     public static final String RATE_LIMITED = "RATE_LIMITED";
     public static final String SERVICE_ERROR = "SERVICE_ERROR";
