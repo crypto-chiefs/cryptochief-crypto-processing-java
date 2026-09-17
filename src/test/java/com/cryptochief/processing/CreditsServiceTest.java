@@ -74,7 +74,7 @@ class CreditsServiceTest {
     @Test
     void topupPostsSignedBodyOmittingEmptyOptionalUrls() throws Exception {
         server.enqueue(new MockResponse().setBody(
-                "{\"invoice_id\":9001,\"payment_link\":\"https://pay.cryptochief.io/topup/abc\","
+                "{\"invoice_id\":9001,\"payment_link\":\"https://pay.crypto-chief.com/topup/abc\","
                         + "\"amount\":\"25\",\"currency\":\"USDT\",\"status\":\"pending\"}"));
         var topup = client.credits().topup(CreditsTopupRequest.of("25", "USDT"));
         RecordedRequest recorded = server.takeRequest();
@@ -85,7 +85,7 @@ class CreditsServiceTest {
         assertEquals("{\"amount\":\"25\",\"currency\":\"USDT\"}", body);
         assertSigned(recorded, body);
         assertEquals(9001L, topup.invoiceId());
-        assertEquals("https://pay.cryptochief.io/topup/abc", topup.paymentLink());
+        assertEquals("https://pay.crypto-chief.com/topup/abc", topup.paymentLink());
         assertEquals("25", topup.amount());
         assertEquals("USDT", topup.currency());
         assertEquals("pending", topup.status());
@@ -96,7 +96,7 @@ class CreditsServiceTest {
     @Test
     void topupSendsOptionalUrlsAndMapsAllFields() throws Exception {
         server.enqueue(new MockResponse().setBody(
-                "{\"invoice_id\":9002,\"payment_link\":\"https://pay.cryptochief.io/topup/def\","
+                "{\"invoice_id\":9002,\"payment_link\":\"https://pay.crypto-chief.com/topup/def\","
                         + "\"amount\":\"100000\",\"currency\":\"USDC\",\"status\":\"pending\","
                         + "\"order_uuid\":\"5f1e0c9a-7f3b-4c2d-9d68-1c2c3d4e5f60\",\"expired_at\":1755529200}"));
         var topup = client.credits().topup(new CreditsTopupRequest(
@@ -110,7 +110,7 @@ class CreditsServiceTest {
                 + "\"url_success\":\"https://your.app/topup/ok\"}", body);
         assertSigned(recorded, body);
         assertEquals(9002L, topup.invoiceId());
-        assertEquals("https://pay.cryptochief.io/topup/def", topup.paymentLink());
+        assertEquals("https://pay.crypto-chief.com/topup/def", topup.paymentLink());
         assertEquals("100000", topup.amount());
         assertEquals("USDC", topup.currency());
         assertEquals("pending", topup.status());

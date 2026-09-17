@@ -14,7 +14,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 <dependency>
   <groupId>com.crypto-chief</groupId>
   <artifactId>cryptochief-crypto-processing-java</artifactId>
-  <version>0.9.0</version>
+  <version>0.10.0</version>
 </dependency>
 ```
 
@@ -22,7 +22,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 
 ```kotlin
 dependencies {
-    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.9.0")
+    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.10.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.9.0'
+    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.10.0'
 }
 ```
 
@@ -628,7 +628,7 @@ import com.cryptochief.processing.Options;
 var client = new CryptoChiefClient(Options.builder()
     .merchantId("...")
     .apiKey("...")
-    .baseUrl("https://staging-api.crypto-chief.com")
+    .baseUrl("https://api-processing.crypto-chief.com") // the default; override for a white-label installation
     .requestTimeout(Duration.ofSeconds(30))
     .maxRetries(5)
     .initialRetryDelay(Duration.ofMillis(250))
