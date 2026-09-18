@@ -6,7 +6,11 @@ import com.cryptochief.processing.models.ContractCall;
 import com.cryptochief.processing.models.ConvertRequest;
 import com.cryptochief.processing.models.CreatePayInRequest;
 import com.cryptochief.processing.models.CreditsTopupRequest;
+import com.cryptochief.processing.models.EnergyQuoteRequest;
+import com.cryptochief.processing.models.EnergyRentRequest;
 import com.cryptochief.processing.models.EstimatePayoutRequest;
+import com.cryptochief.processing.models.NativeBuyRequest;
+import com.cryptochief.processing.models.NativeQuoteRequest;
 import com.cryptochief.processing.models.ExecutePayoutRequest;
 import com.cryptochief.processing.models.ExecuteTransactionRequest;
 import com.cryptochief.processing.models.GenerateWalletRequest;
@@ -234,6 +238,29 @@ class RequestBodyWireTest {
                 new Case("currencies.fiatToCrypto without provider",
                         "{\"amount\":\"100\",\"from\":\"USD\",\"to\":\"USDT\"}",
                         (c, t) -> c.currencies().fiatToCrypto(new ConvertRequest(null, "USD", "USDT", "100"))),
+                new Case("energy.quote required only",
+                        "{\"receive_address\":\"TSender\"}",
+                        (c, t) -> c.energy().quote(EnergyQuoteRequest.of("TSender"))),
+                new Case("energy.quote with energy and duration",
+                        "{\"duration_sec\":3600,\"energy\":65000,\"receive_address\":\"TSender\"}",
+                        (c, t) -> c.energy().quote(EnergyQuoteRequest.of("TSender", 65000, 3600))),
+                new Case("energy.rent with quote ref and idempotency key",
+                        "{\"quote_ref\":\"q-abc\"}",
+                        (c, t) -> c.withIdempotencyKey("rent-1").energy().rent(EnergyRentRequest.ofQuote("q-abc"))),
+                new Case("energy.order",
+                        "{\"key\":\"rent-1\"}",
+                        (c, t) -> c.energy().order("rent-1")),
+                new Case("native.quote",
+                        "{\"amount\":\"0.05\",\"network\":\"TRON_MAINNET\",\"receive_address\":\"TRecipient\"}",
+                        (c, t) -> c.nativeCoin().quote(
+                                NativeQuoteRequest.of(Chain.TRON_MAINNET, "TRecipient", "0.05"))),
+                new Case("native.buy with quote ref and idempotency key",
+                        "{\"quote_ref\":\"nq-abc\"}",
+                        (c, t) -> c.withIdempotencyKey("buy-1").nativeCoin().buy(
+                                NativeBuyRequest.ofQuote("nq-abc"))),
+                new Case("native.order",
+                        "{\"key\":\"buy-1\"}",
+                        (c, t) -> c.nativeCoin().order("buy-1")),
                 new Case("blockchain.walletBalance without contracts",
                         "{\"addresses\":[\"0xabc\"],\"chain\":\"ETH_MAINNET\"}",
                         "[]",
@@ -301,6 +328,7 @@ class RequestBodyWireTest {
 
     private static String hmacV1(RecordedRequest request, byte[] body) throws Exception {
         String query = request.getRequestUrl().encodedQuery();
+        String idempotencyKey = request.getHeader("Idempotency-Key");
         String stringToSign = String.join("\n",
                 "CC-HMAC-SHA256-REQ-V1",
                 request.getHeader("X-CC-Timestamp"),
@@ -309,7 +337,7 @@ class RequestBodyWireTest {
                 request.getRequestUrl().encodedPath(),
                 query == null ? "" : query,
                 MERCHANT,
-                "",
+                idempotencyKey == null ? "" : idempotencyKey,
                 HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(body)));
         Mac mac = Mac.getInstance("HmacSHA256");
         mac.init(new SecretKeySpec(KEY.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));

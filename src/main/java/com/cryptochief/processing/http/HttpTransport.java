@@ -306,12 +306,14 @@ public final class HttpTransport {
     private record ParsedError(ApiException exception, Long serverTime) {}
 
     /**
-     * Reads code, message and {@code server_time} from both envelopes.
+     * Reads code, message and {@code server_time} from both envelopes and from an order body.
      *
      * <p>Gateway: {@code {"ok":false,"error":"<CODE>","msg":"...","server_time":...}}.
      * White-label: {@code {"data":null,"error":{"status":...,"name":...,"message":"...",
      * "details":{"code":"<CODE>","server_time":...}},"server_time":...}}; the code is
      * {@code error.details.code}, else {@code error.name}.
+     * Order body: {@code {"id":...,"status":"refused",...,"error_code":"<CODE>","error":"..."}};
+     * the code is {@code error_code} and {@code error} is the human sentence.
      */
     private ParsedError parseApiError(int status, byte[] body) {
         String text = new String(body, StandardCharsets.UTF_8);
@@ -334,23 +336,33 @@ public final class HttpTransport {
                 }
             } else if (node != null && node.isObject()) {
                 serverTime = longField(node, "server_time");
-                String errorField = textField(node, "error");
-                String msgField = textField(node, "msg");
-                // Two envelope shapes, one code. When "error" names the refusal itself
-                // (LABEL_TOO_LONG, INVALID_PARAMS, ...) that is the code and "msg" is an
-                // English sentence for a human. When "error" is the generic SERVICE_ERROR
-                // marker, the refusal came from an upstream service and names itself in
-                // "msg" instead. Do not "simplify" this to preferring msg: that hands the
-                // caller a sentence and every gateway-side ErrorCode constant stops
-                // matching.
-                if (msgField == null || msgField.isEmpty() || msgField.equals(errorField)) {
-                    code = errorField;
-                } else if (errorField == null || errorField.isEmpty()
-                        || ErrorCode.SERVICE_ERROR.equals(errorField)) {
-                    code = msgField;
+                String errorCodeField = textField(node, "error_code");
+                if (errorCodeField != null && !errorCodeField.isEmpty()) {
+                    // An order body (energy rent, native buy): the machine code is error_code
+                    // and "error" is a sanitised human sentence, not the code. rent/buy hand
+                    // these bodies back as orders, but one that reaches the throw - or is read
+                    // through request() - must still surface the code to branch on.
+                    code = errorCodeField;
+                    message = textField(node, "error");
                 } else {
-                    code = errorField;
-                    message = msgField;
+                    String errorField = textField(node, "error");
+                    String msgField = textField(node, "msg");
+                    // Two envelope shapes, one code. When "error" names the refusal itself
+                    // (LABEL_TOO_LONG, INVALID_PARAMS, ...) that is the code and "msg" is an
+                    // English sentence for a human. When "error" is the generic SERVICE_ERROR
+                    // marker, the refusal came from an upstream service and names itself in
+                    // "msg" instead. Do not "simplify" this to preferring msg: that hands the
+                    // caller a sentence and every gateway-side ErrorCode constant stops
+                    // matching.
+                    if (msgField == null || msgField.isEmpty() || msgField.equals(errorField)) {
+                        code = errorField;
+                    } else if (errorField == null || errorField.isEmpty()
+                            || ErrorCode.SERVICE_ERROR.equals(errorField)) {
+                        code = msgField;
+                    } else {
+                        code = errorField;
+                        message = msgField;
+                    }
                 }
             }
         } catch (JsonProcessingException ignored) {

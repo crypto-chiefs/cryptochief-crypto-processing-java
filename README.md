@@ -14,7 +14,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 <dependency>
   <groupId>com.crypto-chief</groupId>
   <artifactId>cryptochief-crypto-processing-java</artifactId>
-  <version>0.10.0</version>
+  <version>0.11.0</version>
 </dependency>
 ```
 
@@ -22,7 +22,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 
 ```kotlin
 dependencies {
-    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.10.0")
+    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.11.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.10.0'
+    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.11.0'
 }
 ```
 
@@ -73,7 +73,7 @@ public class App {
 | Service | Endpoints |
 | ------- | --------- |
 | `client.payouts()` | estimate, execute, info, history, batchEstimate, batchExecute |
-| `client.transactions()` | sign, execute, info, history + EVM/TRON/Solana/TON helpers |
+| `client.transactions()` | estimate, sign, execute, info, history + EVM/TRON/Solana/TON helpers |
 | `client.payIns()` | create, info, history, cancel, selectAsset, resetAsset |
 | `client.wallets()` | generate, list, info, history, freeze, rebindMaster, setCallbackUrl, clearCallbackUrl, setLabel, clearLabel, decryptPrivateKey |
 | `client.sweeps()` | force, history, walletHistory, settings, updateSettings, updateGasSource |
@@ -82,6 +82,8 @@ public class App {
 | `client.blockchain()` | contractsAvailable, contractsList, blockchains, walletBalance, transactionStatus |
 | `client.currencies()` | fiatToCrypto, cryptoToFiat, fiats, cryptos |
 | `client.credits()` | balance, topup |
+| `client.energy()` | quote, rent, order (TRON energy rental, billed to API credits) |
+| `client.nativeCoin()` | quote, buy, order (native coin purchase, billed to API credits) |
 
 ## Invoices (PayIn)
 
@@ -404,6 +406,130 @@ System.out.println(cryptos.byExchange().get("binance"));
 `fiats()` are the codes `fiatToCrypto` and a pay-in's `currency` accept. `cryptos()` is rate
 availability only — a ticker listed there is one the platform can price, which does not mean
 your project can be paid in it. For that, use `client.blockchain().contractsAvailable()`.
+
+## Fee estimation
+
+`estimate` asks what a transaction would cost without signing or broadcasting anything. It
+takes the transfer fields of a sign request (`native` or `token` — no `url_callback`) and
+answers with the network fee and the balance the from-wallet must hold:
+
+```java
+import com.cryptochief.processing.models.EstimateTransactionRequest;
+
+var fee = client.transactions().estimate(EstimateTransactionRequest.ofToken(
+    Chain.TRON_MAINNET,
+    "TFrom...",
+    "TTo...",
+    Amount.toBase("12.50", 6).toString(),
+    "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"));
+System.out.println("network fee " + fee.estimatedFee() + " (" + fee.estimatedFeeFiat() + " USD)");
+System.out.println("the wallet must hold " + fee.required());
+```
+
+`estimatedFee()` is the network fee in the native coin, human-readable. `required()` is what
+the from-wallet must hold of the native coin — `fee + value` for a `native` transfer, just the
+fee for a `token` one. `estimatedFeeFiat()` and `requiredFiat()` are the same amounts in USD
+and read as an empty string when no rate is available. A `contract` call cannot be estimated —
+the API answers 400 `CONTRACT_ESTIMATE_UNSUPPORTED`.
+
+On TRON the answer also carries a breakdown (`null` everywhere else): `energyFee()`,
+`bandwidthFee()` and `activationFee()` add up to `estimatedFee()` as the gross cost,
+`energy()` is the energy the transfer needs, `feeLimit()` is the on-chain cap that would be
+written into the transaction, and `feeExpected()` is what the transfer is expected to cost
+given the wallet's current energy pool (staked, delegated or rented) — an expectation, not a
+guarantee, since the pool may be spent before the transaction is broadcast. `activationFee()`
+is present only for a `native` transfer to an address that does not exist yet.
+
+## TRON energy rental
+
+`client.energy()` rents TRON energy for the address that will send the transfer, billed to the
+same API credits as everything else. `quote` is free and prices the rental; `rent` buys it —
+synchronously, so by the time it answers the energy has been delegated or the refusal reason is
+known; `order` reads an order back by its idempotency key.
+
+```java
+import com.cryptochief.processing.models.EnergyOrderStatus;
+import com.cryptochief.processing.models.EnergyQuoteRequest;
+import com.cryptochief.processing.models.EnergyRentRequest;
+
+var quote = client.energy().quote(EnergyQuoteRequest.of("TSender..."));
+System.out.println(quote.energy() + " energy for " + quote.priceTrx() + " TRX"
+        + " — burning would cost " + quote.burnPriceTrx());
+
+// The idempotency key is what makes a retry after a timeout safe instead of a
+// double purchase; rent without one is refused before any request goes out.
+var order = client.withIdempotencyKey("rent-2026-09-18-0001").energy()
+        .rent(EnergyRentRequest.ofQuote(quote.ref()));
+if (EnergyOrderStatus.DELIVERED.equals(order.status())) {
+    System.out.println("delegated " + order.deliveredEnergy() + " energy to " + order.receiveAddress());
+}
+
+// Later, from any client:
+var same = client.energy().order("rent-2026-09-18-0001");
+```
+
+`rent` returns the order even when the HTTP status is not 200: a `refused` order (502 — or 402
+when the credits balance did not cover it) and an `unresolved` one (409, `needsAttention()` set)
+arrive with the order itself as the body and come back as the order, not as an exception — branch
+on `status()` and `needsAttention()`, and on `errorCode()` for the machine reason (`error()` is
+the sanitised human sentence, for logs only). Only a failure with no order to report (409
+`NOT_WORTH_RENTING` / `QUOTE_EXPIRED`, a gateway error page, ...) throws `ApiException`.
+
+A `refused` order was never charged, so its `priceUsd()`, `credits()` and `trxUsd()` are `null`
+rather than zero. An `unresolved` order means the energy may already be delegated, so it must
+**not** be retried — poll `order(key)` until it settles; a `refused` one may be retried with a
+**new** idempotency key (after a top-up, when the refusal was 402 `INSUFFICIENT_CREDITS`).
+
+## Native coin purchase
+
+`client.nativeCoin()` (`native` is a Java keyword) buys the native coin of a network — TRX, ETH,
+BNB, SOL, TON, ... — out of the platform's liquidity, delivered to any address you name (the
+merchant pays the transfer) and billed to the same API credits as everything else. The price is
+the coins at the current market rate plus the platform's transfer fee, already included; the quote
+breaks it down field by field — `total_usd` is the full price and `credits` the exact amount the
+buy will take from the credits balance. `quote` is free; `buy` is synchronous,
+so by the time it answers the coins have been sent or the refusal reason is known; `order` reads
+an order back by its idempotency key.
+
+```java
+import com.cryptochief.processing.models.NativeBuyRequest;
+import com.cryptochief.processing.models.NativeOrderStatus;
+import com.cryptochief.processing.models.NativeQuoteRequest;
+
+var quote = client.nativeCoin().quote(
+        NativeQuoteRequest.of(Chain.TRON_MAINNET, "TRecipient...", "0.05"));
+System.out.println(quote.amount() + " TRX for " + quote.totalUsd() + " USD ("
+        + quote.credits() + " credits), transfer fee included");
+
+// The idempotency key is what makes a retry after a timeout safe instead of a
+// double purchase; buy without one is refused before any request goes out.
+var order = client.withIdempotencyKey("buy-2026-09-18-0001").nativeCoin()
+        .buy(NativeBuyRequest.ofQuote(quote.ref()));
+if (NativeOrderStatus.DELIVERED.equals(order.status())) {
+    System.out.println("sent " + order.amount() + " to " + order.receiveAddress()
+            + " — tx " + order.txHash());
+}
+
+// Later, from any client:
+var same = client.nativeCoin().order("buy-2026-09-18-0001");
+```
+
+`buy` returns the order even when the HTTP status is not 200: a `refused` order (502 — or 402
+when the credits balance did not cover it) and an `unresolved` one (409, `needsAttention()` set)
+arrive with the order itself as the body and come back as the order, not as an exception — branch
+on `status()` and `needsAttention()`, and on `errorCode()` for the machine reason (`error()` is
+the sanitised human sentence, for logs only). Only a failure with no order to report (409
+`QUOTE_EXPIRED` / `QUOTE_ALREADY_USED`, a 502 `INSUFFICIENT_LIQUIDITY` envelope, a gateway error
+page, ...) throws `ApiException`.
+
+A `refused` order was never sent or charged, so its `txHash()`, `totalUsd()` and `credits()` are
+`null` rather than zero; `transferFee()`, `transferFeeUsd()`, `coinPriceUsd()` and `coinUsd()`
+are always on the wire and arrive as `""` / `"0.00"` on a refusal that never got priced. An
+`unresolved` order means the coins may already be sent, so it must **not** be retried — poll
+`order(key)` until it settles; a `refused` one may be retried with a **new** idempotency key
+(after a top-up, when the refusal was 402 `INSUFFICIENT_CREDITS`). A 409 `QUOTE_EXPIRED` or
+`QUOTE_ALREADY_USED` means the quote has to be requested again — each quote lives about 90 seconds
+and is single-use.
 
 ## Contract calls
 

@@ -99,6 +99,24 @@ class HttpTransportTest {
     }
 
     @Test
+    void anOrderBodyReadThroughTheThrowSurfacesErrorCode() {
+        // rent/buy recover these bodies into orders, but an order body read through request()
+        // - or one that fails the id+status guard - must still throw with the machine code,
+        // not with the human sentence "error" carries on this shape.
+        String body = "{\"id\":4473,\"status\":\"refused\",\"error_code\":\"SUPPLIER_REFUSED\","
+                + "\"error\":\"no supplier could take this order\"}";
+        // 502 is retried by the transport's policy (maxRetries=2 here) before it throws.
+        server.enqueue(new MockResponse().setResponseCode(502).setBody(body));
+        server.enqueue(new MockResponse().setResponseCode(502).setBody(body));
+        server.enqueue(new MockResponse().setResponseCode(502).setBody(body));
+        ApiException ex = assertThrows(ApiException.class, () -> client.payouts().info("a"));
+        assertEquals("SUPPLIER_REFUSED", ex.code());
+        assertEquals("no supplier could take this order", ex.description());
+        assertEquals(502, ex.status());
+        assertEquals(3, server.getRequestCount());
+    }
+
+    @Test
     void parsesWhiteLabelEnvelope() {
         server.enqueue(new MockResponse().setResponseCode(404).setBody("{\"data\":null,\"error\":{"
                 + "\"status\":404,\"name\":\"NotFoundError\",\"message\":\"wallet not found\","

@@ -100,6 +100,10 @@ public final class ErrorCode {
     public static final String CONTRACT_CALLS_UNSUPPORTED_ON_NETWORK =
             "CONTRACT_CALLS_UNSUPPORTED_ON_NETWORK";
     public static final String SINGLE_CALL_REQUIRED = "SINGLE_CALL_REQUIRED";
+    /** HTTP 400: {@code estimate} with {@code type: "contract"} - only transfers can be estimated. */
+    public static final String CONTRACT_ESTIMATE_UNSUPPORTED = "CONTRACT_ESTIMATE_UNSUPPORTED";
+    /** HTTP 502: the estimate infrastructure failed; nothing was priced, retrying is safe. */
+    public static final String ESTIMATE_UNAVAILABLE = "ESTIMATE_UNAVAILABLE";
     public static final String CALL_TO_REQUIRED = "CALL_TO_REQUIRED";
     public static final String CALL_EMPTY = "CALL_EMPTY";
     public static final String CALL_DATA_MUST_BE_HEX = "CALL_DATA_MUST_BE_HEX";

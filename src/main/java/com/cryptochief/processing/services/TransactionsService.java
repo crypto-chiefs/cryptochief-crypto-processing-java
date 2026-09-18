@@ -5,6 +5,8 @@ import com.cryptochief.processing.CryptoChiefClient;
 import com.cryptochief.processing.evm.EvmAbi;
 import com.cryptochief.processing.http.HttpTransport;
 import com.cryptochief.processing.models.ContractCall;
+import com.cryptochief.processing.models.EstimateTransactionRequest;
+import com.cryptochief.processing.models.EstimateTransactionResponse;
 import com.cryptochief.processing.models.ExecuteTransactionRequest;
 import com.cryptochief.processing.models.HistoryQuery;
 import com.cryptochief.processing.models.SignTransactionRequest;
@@ -32,6 +34,10 @@ public final class TransactionsService {
     public TransactionsService(CryptoChiefClient client, HttpTransport transport) {
         this.client = client;
         this.transport = transport;
+    }
+
+    public EstimateTransactionResponse estimate(EstimateTransactionRequest request) {
+        return transport.send("/v1/transaction/estimate", request, EstimateTransactionResponse.class);
     }
 
     public SignTransactionResponse sign(SignTransactionRequest request) {
