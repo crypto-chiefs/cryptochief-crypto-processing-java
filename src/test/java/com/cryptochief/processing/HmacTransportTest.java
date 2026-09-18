@@ -65,7 +65,7 @@ class HmacTransportTest {
         String expected = RequestSigner.signHmacV1(API_KEY, ts, nonce, r.getMethod(), routePath, query,
                 r.getHeader("Merchant"), r.getHeader(RequestSigner.HEADER_IDEMPOTENCY_KEY),
                 r.getBody().clone().readByteArray());
-        assertEquals("v1=" + expected, r.getHeader(RequestSigner.HEADER_HMAC_SIGNATURE));
+        assertEquals(expected, r.getHeader(RequestSigner.HEADER_HMAC_SIGNATURE));
     }
 
     @Test
@@ -103,10 +103,10 @@ class HmacTransportTest {
         String ts = r.getHeader(RequestSigner.HEADER_TIMESTAMP);
         String nonce = r.getHeader(RequestSigner.HEADER_NONCE);
         byte[] body = r.getBody().readByteArray();
-        assertEquals("v1=" + RequestSigner.signHmacV1(API_KEY, ts, nonce, r.getMethod(), "/v1/payout/info", "",
+        assertEquals(RequestSigner.signHmacV1(API_KEY, ts, nonce, r.getMethod(), "/v1/payout/info", "",
                         r.getHeader("Merchant"), "", body),
                 r.getHeader(RequestSigner.HEADER_HMAC_SIGNATURE));
-        assertNotEquals("v1=" + RequestSigner.signHmacV1(API_KEY, ts, nonce, r.getMethod(), "/v1/payout/info", "",
+        assertNotEquals(RequestSigner.signHmacV1(API_KEY, ts, nonce, r.getMethod(), "/v1/payout/info", "",
                         r.getHeader("Merchant"), "payout-1", body),
                 r.getHeader(RequestSigner.HEADER_HMAC_SIGNATURE));
     }

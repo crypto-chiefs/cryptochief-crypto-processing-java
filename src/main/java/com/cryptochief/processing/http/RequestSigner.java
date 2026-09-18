@@ -85,10 +85,11 @@ public final class RequestSigner {
     }
 
     /**
-     * Lowercase hex HMAC-SHA256 of {@link #hmacV1StringToSign} keyed with the UTF-8 bytes of {@code apiKey}.
+     * The {@code X-CC-Signature} header value of a request: {@link #HMAC_V1_PREFIX} + lowercase hex
+     * HMAC-SHA256 of {@link #hmacV1StringToSign} keyed with the UTF-8 bytes of {@code apiKey}.
      *
-     * <p>The returned value is the hex alone: the {@code X-CC-Signature} header is
-     * {@link #HMAC_V1_PREFIX} + this. {@link #signWebhookV1} returns the header value itself, prefix included.
+     * <p>The returned value is the header value itself, prefix included, exactly as {@link #signWebhookV1}
+     * returns it; set it on the header unchanged.
      *
      * @throws IllegalArgumentException blank {@code apiKey}, or see {@link #hmacV1StringToSign}
      */
@@ -97,7 +98,7 @@ public final class RequestSigner {
         requireKey(apiKey);
         String stringToSign = hmacV1StringToSign(timestamp, nonce, method, path, query, merchant,
                 idempotencyKey, body);
-        return toHexLower(hmacSha256(apiKey, stringToSign));
+        return HMAC_V1_PREFIX + toHexLower(hmacSha256(apiKey, stringToSign));
     }
 
     /**

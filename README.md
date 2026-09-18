@@ -14,7 +14,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 <dependency>
   <groupId>com.crypto-chief</groupId>
   <artifactId>cryptochief-crypto-processing-java</artifactId>
-  <version>0.11.0</version>
+  <version>0.12.0</version>
 </dependency>
 ```
 
@@ -22,7 +22,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 
 ```kotlin
 dependencies {
-    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.11.0")
+    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.12.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.11.0'
+    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.12.0'
 }
 ```
 
@@ -823,7 +823,7 @@ import java.time.Instant;
 // byte[] body: the exact bytes sent
 String timestamp = Long.toString(Instant.now().getEpochSecond());
 String nonce = RequestSigner.newNonce();
-String sig = RequestSigner.HMAC_V1_PREFIX + RequestSigner.signHmacV1(apiKey, timestamp, nonce, "POST",
+String sig = RequestSigner.signHmacV1(apiKey, timestamp, nonce, "POST",
     "/v1/payout/info", "", merchantId, "", body);
 // POST <base URL>/v1/payout/info with body and headers:
 //   Merchant: merchantId

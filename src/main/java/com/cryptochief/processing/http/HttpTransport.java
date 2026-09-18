@@ -282,13 +282,13 @@ public final class HttpTransport {
         String timestamp = Long.toString(System.currentTimeMillis() / 1000L + clockOffsetSeconds.get());
         String nonce = RequestSigner.newNonce();
         HttpUrl requestUrl = request.url();
-        String hmac = RequestSigner.signHmacV1(options.apiKey(), timestamp, nonce, request.method(), routePath,
-                requestUrl.encodedQuery(), request.header(HEADER_MERCHANT),
+        String signature = RequestSigner.signHmacV1(options.apiKey(), timestamp, nonce, request.method(),
+                routePath, requestUrl.encodedQuery(), request.header(HEADER_MERCHANT),
                 request.header(RequestSigner.HEADER_IDEMPOTENCY_KEY), body);
         return request.newBuilder()
                 .header(RequestSigner.HEADER_TIMESTAMP, timestamp)
                 .header(RequestSigner.HEADER_NONCE, nonce)
-                .header(RequestSigner.HEADER_HMAC_SIGNATURE, RequestSigner.HMAC_V1_PREFIX + hmac)
+                .header(RequestSigner.HEADER_HMAC_SIGNATURE, signature)
                 .build();
     }
 

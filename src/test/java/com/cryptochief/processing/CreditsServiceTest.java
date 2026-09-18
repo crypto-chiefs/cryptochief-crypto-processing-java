@@ -124,6 +124,6 @@ class CreditsServiceTest {
                 recorded.getHeader(RequestSigner.HEADER_NONCE), recorded.getMethod(),
                 recorded.getRequestUrl().encodedPath(), "", "mer_test", null,
                 body.getBytes(StandardCharsets.UTF_8));
-        assertEquals("v1=" + expected, recorded.getHeader(RequestSigner.HEADER_HMAC_SIGNATURE));
+        assertEquals(expected, recorded.getHeader(RequestSigner.HEADER_HMAC_SIGNATURE));
     }
 }

@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.stream.Stream;
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -76,7 +78,9 @@ class HmacV1SigningTest {
                         v.get("timestamp").asText(), v.get("nonce").asText(), v.get("method").asText(),
                         v.get("path").asText(), v.get("query").asText(), v.get("merchant").asText(),
                         v.get("idempotency_key").asText(), body));
-                assertEquals(v.get("signature").asText(), RequestSigner.signHmacV1(
+                // The vectors carry the bare hex; the signer returns the X-CC-Signature header value.
+                assertEquals(RequestSigner.HMAC_V1_PREFIX + v.get("signature").asText(),
+                        RequestSigner.signHmacV1(
                         v.get("api_key").asText(),
                         v.get("timestamp").asText(), v.get("nonce").asText(), v.get("method").asText(),
                         v.get("path").asText(), v.get("query").asText(), v.get("merchant").asText(),
@@ -92,7 +96,7 @@ class HmacV1SigningTest {
         assertEquals("", v.get("query").asText());
         assertEquals("", v.get("idempotency_key").asText());
         assertEquals("", v.get("body").asText());
-        assertEquals(v.get("signature").asText(), RequestSigner.signHmacV1(
+        assertEquals(RequestSigner.HMAC_V1_PREFIX + v.get("signature").asText(), RequestSigner.signHmacV1(
                 v.get("api_key").asText(), v.get("timestamp").asText(), v.get("nonce").asText(),
                 v.get("method").asText().toLowerCase(Locale.ROOT), v.get("path").asText(), null,
                 v.get("merchant").asText(), null, null));
@@ -120,7 +124,7 @@ class HmacV1SigningTest {
         String sts = RequestSigner.hmacV1StringToSign("1789430400", "0123456789abcdef0123456789abcdef",
                 "gét", "/v1/x", "", "m", "", null);
         assertEquals("GéT", sts.split("\n", -1)[3]);
-        assertEquals(64, RequestSigner.signHmacV1("key", "1789430400", "0123456789abcdef0123456789abcdef",
+        assertEquals(67, RequestSigner.signHmacV1("key", "1789430400", "0123456789abcdef0123456789abcdef",
                 "gét", "/v1/x", "", "m", "", null).length());
     }
 
@@ -179,9 +183,9 @@ class HmacV1SigningTest {
         assertEquals("ref=a%2Fb&q=%D1%82", lines[5]);
     }
 
-    /** The request signer returns the bare hex, the webhook signer the whole header value. */
+    /** Both signers return the whole {@code X-CC-Signature} header value, prefix included. */
     @Test
-    void requestSignatureHasNoPrefixWebhookSignatureHasOne() throws Exception {
+    void requestAndWebhookSignaturesAreHeaderValues() throws Exception {
         JsonNode v = vectors().get(0);
         String request = RequestSigner.signHmacV1(v.get("api_key").asText(), v.get("timestamp").asText(),
                 v.get("nonce").asText(), v.get("method").asText(), v.get("path").asText(),
@@ -190,10 +194,47 @@ class HmacV1SigningTest {
         String webhook = RequestSigner.signWebhookV1("key", 1789430400L, "dlv_1",
                 "{}".getBytes(StandardCharsets.UTF_8));
 
-        assertTrue(request.matches("[0-9a-f]{64}"), request);
         assertEquals("v1=", RequestSigner.HMAC_V1_PREFIX);
+        assertTrue(request.startsWith(RequestSigner.HMAC_V1_PREFIX), request);
+        assertTrue(request.substring(RequestSigner.HMAC_V1_PREFIX.length()).matches("[0-9a-f]{64}"), request);
+        assertEquals(RequestSigner.HMAC_V1_PREFIX + v.get("signature").asText(), request);
         assertTrue(webhook.startsWith(RequestSigner.HMAC_V1_PREFIX), webhook);
         assertTrue(webhook.substring(RequestSigner.HMAC_V1_PREFIX.length()).matches("[0-9a-f]{64}"), webhook);
+    }
+
+    /**
+     * Wire roundtrip: what {@code signHmacV1} returns goes on the {@code X-CC-Signature} header as it is, and a
+     * receiver that strips the prefix and recomputes the HMAC over the string to sign accepts it.
+     */
+    @Test
+    void signedHeaderVerifiesAsReceived() throws Exception {
+        JsonNode v = vectors().get(0);
+        String timestamp = v.get("timestamp").asText();
+        String nonce = v.get("nonce").asText();
+        String method = v.get("method").asText();
+        String path = v.get("path").asText();
+        String query = v.get("query").asText();
+        String merchant = v.get("merchant").asText();
+        String idempotencyKey = v.get("idempotency_key").asText();
+        byte[] body = v.get("body").asText().getBytes(StandardCharsets.UTF_8);
+
+        // The client sets the returned value on the header unchanged.
+        String header = RequestSigner.signHmacV1(v.get("api_key").asText(), timestamp, nonce, method, path,
+                query, merchant, idempotencyKey, body);
+
+        // The receiver: the header starts with v1=, and the rest is the lowercase hex of the HMAC over the
+        // string to sign rebuilt from the headers and the body it read — computed here without the signer.
+        assertTrue(header.startsWith(RequestSigner.HMAC_V1_PREFIX), header);
+        String receivedHex = header.substring(RequestSigner.HMAC_V1_PREFIX.length());
+        String stringToSign = RequestSigner.hmacV1StringToSign(timestamp, nonce, method, path, query, merchant,
+                idempotencyKey, body);
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(v.get("api_key").asText().getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        StringBuilder recomputed = new StringBuilder(64);
+        for (byte b : mac.doFinal(stringToSign.getBytes(StandardCharsets.UTF_8))) {
+            recomputed.append(String.format("%02x", b));
+        }
+        assertTrue(receivedHex.equalsIgnoreCase(recomputed.toString()), header);
     }
 
     @Test
