@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0] — 2026-09-24
+
+- `TxStatus.CANCELLED` (`cancelled`): an EVM signature replaced by a newer one from the same address before it was executed. It is in `TxStatus.TERMINAL`; `TransactionInfo.isTerminal()` and `Polling.waitForTransaction()` treat it as final
+- `SignTransactionResponse.supersededUuids()`: the earlier unexecuted signatures from the same EVM address that the new one replaced; empty when there were none. The 0.12.0 constructor stays
+- `TransactionInfo.errorReason()`. `error()` is never sent by the API. The 0.12.0 and 0.8.0 constructors stay
+- `ErrorCode.NONCE_GAP`, `NONCE_ALREADY_USED` (execute) and `PREVIOUS_EXECUTE_UNRESOLVED` (sign; may arrive as `PREVIOUS_EXECUTE_UNRESOLVED: uuid=<uuid>`, match by prefix)
+
 ## [0.12.0] — 2026-09-19
 
 - **Breaking** for direct callers of `RequestSigner.signHmacV1()`: it now returns the full `X-CC-Signature` header value (`v1=` + lowercase hex), matching `RequestSigner.signWebhookV1()`. Requests sent through the client are unchanged — `HttpTransport` sets the returned value on the header as it is instead of adding the `v1=` prefix itself, so the bytes on the wire are identical

@@ -5,9 +5,10 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
- * {@code transaction.confirmed}, {@code transaction.failed} or {@code transaction.expired}:
- * the fields {@code client.transactions().info()} returns, plus {@code event}. Only final
- * statuses are sent. {@code confirmations} and {@code requiredConfirmations} are always present.
+ * {@code transaction.confirmed}, {@code transaction.failed}, {@code transaction.expired} or
+ * {@code transaction.cancelled}: the fields {@code client.transactions().info()} returns, plus
+ * {@code event}. Only final statuses are sent. {@code confirmations} and
+ * {@code requiredConfirmations} are always present.
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record TransactionWebhookEvent(

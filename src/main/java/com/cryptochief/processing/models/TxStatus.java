@@ -10,8 +10,13 @@ public final class TxStatus {
     public static final String CONFIRMED = "confirmed";
     public static final String FAILED = "failed";
     public static final String EXPIRED = "expired";
+    /**
+     * EVM: replaced by a newer signature from the same address before it was executed;
+     * {@code errorReason} is {@code SUPERSEDED_BY:<new uuid>}.
+     */
+    public static final String CANCELLED = "cancelled";
 
-    public static final Set<String> TERMINAL = Set.of(CONFIRMED, FAILED, EXPIRED);
+    public static final Set<String> TERMINAL = Set.of(CONFIRMED, FAILED, EXPIRED, CANCELLED);
 
     private TxStatus() {}
 }

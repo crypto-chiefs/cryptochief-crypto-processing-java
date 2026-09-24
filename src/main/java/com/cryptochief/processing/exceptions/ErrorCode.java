@@ -86,6 +86,21 @@ public final class ErrorCode {
     public static final String ALREADY_EXECUTED = "ALREADY_EXECUTED";
     public static final String PREFLIGHT_FAILED = "PREFLIGHT_FAILED";
     public static final String BROADCAST_FAILED = "BROADCAST_FAILED";
+    /**
+     * EVM execute: a lower nonce of the address is held by another signature that was not
+     * executed. Nothing was sent; the transaction's {@code errorReason} names that signature
+     * when it is known. Execute it first, then retry the same uuid.
+     */
+    public static final String NONCE_GAP = "NONCE_GAP";
+    /** EVM execute: the chain already used this transaction's nonce. Nothing was sent by this call. */
+    public static final String NONCE_ALREADY_USED = "NONCE_ALREADY_USED";
+    /**
+     * EVM sign: an earlier signature from the same address has an execute whose outcome is not
+     * known yet. The code may carry that signature's uuid
+     * ({@code PREVIOUS_EXECUTE_UNRESOLVED: uuid=<uuid>}); compare with {@code startsWith}. Retry
+     * execute of that uuid instead of signing again.
+     */
+    public static final String PREVIOUS_EXECUTE_UNRESOLVED = "PREVIOUS_EXECUTE_UNRESOLVED";
     public static final String SIGN_FAILED = "SIGN_FAILED";
     public static final String SIGNED_TX_MISMATCH = "SIGNED_TX_MISMATCH";
     public static final String TYPE_INVALID = "TYPE_INVALID";

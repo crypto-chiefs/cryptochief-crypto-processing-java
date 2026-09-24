@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "com.crypto-chief"
-version = "0.12.0"
+version = "0.13.0"
 
 description = "Java SDK for the Crypto Chief crypto-processing API."
 
