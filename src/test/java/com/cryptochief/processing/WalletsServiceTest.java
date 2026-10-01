@@ -288,8 +288,19 @@ class WalletsServiceTest {
                 {"items":[
                   {"uuid":"0a1b2c3d-4e5f-6789-abcd-ef0123456789","order_id":"invoice-1002",
                    "status":"paid","amount_crypto":"10.5","payment_coin":"USDT",
+                   "payment_network":"TRON_MAINNET","to_address":"TQrY8bYc2yQ8sM8nJ1sZ9c2Zx7L2wq7pQb",
+                   "is_payment_multiple":true,"received_amount_crypto":"10.5",
+                   "remaining_amount_crypto":"0",
+                   "payments":[
+                     {"txid":"b3f1c0a4","amount_crypto":"7","confirmations":19,"status":"confirmed",
+                      "seen_at":"2026-09-30T10:00:00Z"},
+                     {"txid":"e5d69788","amount_crypto":"3.5","confirmations":21,"status":"confirmed",
+                      "seen_at":"2026-09-30T10:05:00Z"}
+                   ]},
+                  {"uuid":"1b2c3d4e-5f67-89ab-cdef-0123456789ab","order_id":"invoice-1003",
+                   "status":"pending","amount_crypto":"2","payment_coin":"USDT",
                    "payment_network":"TRON_MAINNET","to_address":"TQrY8bYc2yQ8sM8nJ1sZ9c2Zx7L2wq7pQb"}
-                ],"meta":{"page":1,"page_size":20,"total":1}}
+                ],"meta":{"page":1,"page_size":20,"total":2}}
                 """));
 
         var out = client.wallets().history("TQrY8bYc2yQ8sM8nJ1sZ9c2Zx7L2wq7pQb");
@@ -310,9 +321,27 @@ class WalletsServiceTest {
         assertEquals("10.5", order.amountCrypto());
         assertEquals("USDT", order.paymentCoin());
         assertEquals(Chain.TRON_MAINNET, order.paymentNetwork());
+        // A multiple-payment order reports every receipt on the order itself.
+        assertEquals(Boolean.TRUE, order.isPaymentMultiple());
+        assertEquals("10.5", order.receivedAmountCrypto());
+        assertEquals("0", order.remainingAmountCrypto());
+        assertEquals(2, order.payments().size());
+        assertEquals("b3f1c0a4", order.payments().get(0).txid());
+        assertEquals("7", order.payments().get(0).amountCrypto());
+        assertEquals(19, order.payments().get(0).confirmations());
+        assertEquals("confirmed", order.payments().get(0).status());
+        assertEquals("2026-09-30T10:00:00Z", order.payments().get(0).seenAt());
+        assertEquals("e5d69788", order.payments().get(1).txid());
         assertEquals(1, out.meta().page());
         assertEquals(20, out.meta().pageSize());
-        assertEquals(1, out.meta().total());
+        assertEquals(2, out.meta().total());
+
+        // A single-payment order carries none of the new keys; every one reads null.
+        var single = out.items().get(1);
+        assertNull(single.isPaymentMultiple());
+        assertNull(single.receivedAmountCrypto());
+        assertNull(single.remainingAmountCrypto());
+        assertNull(single.payments());
     }
 
     @Test

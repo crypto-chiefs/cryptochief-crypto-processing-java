@@ -115,6 +115,17 @@ var invoice = client.payIns().create(new CreatePayInRequest(
 System.out.println("pay to " + invoice.toAddress());
 ```
 
+`accuracyPaymentPercent` is the payment accuracy tolerance: `-1` is the wildcard — any
+received amount is accepted and the final status (`paid`, `paid_less`, `paid_over`) says on
+which side it landed — otherwise 0..15, `null` uses the project's default (5).
+`.withPaymentMultiple(true)` lets one invoice be paid by several transactions — a partial
+payment moves the order to `wrong_amount_waiting` and the remainder can be topped up until
+one hour past `expired_at`; such orders report `receivedAmountCrypto`,
+`remainingAmountCrypto` and every receipt in `payments` on create/info/history, and their
+webhooks add `invoice.wrong_amount_waiting` (on every receipt while the amount is not
+reached) and `invoice.late_payment` (a payment after the final status), both carrying the
+same `payments` list.
+
 ## Wallets
 
 `generate` takes an optional `label` — a name of your own for the wallet, at most 255

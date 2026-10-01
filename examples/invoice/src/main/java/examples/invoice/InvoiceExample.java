@@ -20,6 +20,11 @@ public final class InvoiceExample {
         String mode = args.length > 0 ? args[0] : "fiat";
 
         try (CryptoChiefClient client = CryptoChiefClient.create(merchantId, apiKey)) {
+            // accuracyPaymentPercent (10th argument): -1 accepts any amount (the final
+            // status paid/paid_less/paid_over says the direction), 0..15 bounds the
+            // deviation, null uses the project default (5). .withPaymentMultiple(true)
+            // lets several transactions pay one invoice - then watch for the
+            // invoice.wrong_amount_waiting / invoice.late_payment webhooks with payments[].
             PayIn invoice = switch (mode) {
                 case "fiat" -> client.payIns().create(new CreatePayInRequest(
                         "order-" + UUID.randomUUID(),

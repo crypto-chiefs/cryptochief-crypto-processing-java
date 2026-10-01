@@ -133,6 +133,13 @@ class RequestBodyWireTest {
                                 + "\"mode\":\"fiat\",\"order_id\":\"o-3\",\"user_id\":\"u\"}",
                         (c, t) -> c.payIns().create(new CreatePayInRequest("o-3", "u", PayInMode.FIAT, null, 600,
                                 null, null, null, null, null, "5", "EUR", null, new AssetsPolicy(), null, null))),
+                new Case("payIns.create multiple payments and wildcard accuracy",
+                        "{\"accuracy_payment_percent\":-1,\"amount_crypto\":\"10\","
+                                + "\"asset\":{\"coin\":\"USDT\",\"network\":\"TRON_MAINNET\"},"
+                                + "\"is_payment_multiple\":true,\"mode\":\"crypto\",\"order_id\":\"o-9\"}",
+                        (c, t) -> c.payIns().create(new CreatePayInRequest("o-9", null, PayInMode.CRYPTO, null,
+                                null, null, null, null, null, -1, null, null, null, null, "10", USDT_TRON)
+                                .withPaymentMultiple(true))),
                 new Case("payIns.selectAsset optional null",
                         "{\"uuid\":\"u-1\"}",
                         (c, t) -> c.payIns().selectAsset(new SelectAssetRequest("u-1", null, null, null))),

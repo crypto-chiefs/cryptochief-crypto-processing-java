@@ -18,6 +18,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
  * {@code asset} names a concrete network; it matters in fiat mode and when the network is
  * {@code ANY}, where the platform selects the asset and an unconstrained pick could put a
  * real payment on a test network. Null uses the project's own default.
+ *
+ * <p>{@code accuracyPaymentPercent} is the payment accuracy tolerance, in percent: -1 is the
+ * wildcard - any received amount is accepted and the final status ({@code paid},
+ * {@code paid_less} or {@code paid_over}) says on which side it landed - otherwise 0..15.
+ * Null uses the project's own default (5).
+ *
+ * <p>{@code isPaymentMultiple} lets one invoice be paid by several transactions: a partial
+ * payment moves the order to {@code wrong_amount_waiting} instead of closing it, and the
+ * remainder can be topped up until one hour past {@code expired_at}. Null or false keeps the
+ * single-payment behavior; false need not be sent.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record CreatePayInRequest(
@@ -38,8 +48,38 @@ public record CreatePayInRequest(
         @JsonProperty("amount_crypto") String amountCrypto,
         @JsonProperty("asset") Asset asset,
         @JsonProperty("master_wallet_address") String masterWalletAddress,
-        @JsonProperty("environment") String environment
+        @JsonProperty("environment") String environment,
+        @JsonProperty("is_payment_multiple") Boolean isPaymentMultiple
 ) {
+
+    /**
+     * The order without {@code isPaymentMultiple}, as released in 0.13.0. Kept so code
+     * written before the field existed still compiles.
+     */
+    public CreatePayInRequest(
+            String orderId,
+            String userId,
+            String mode,
+            String toAddress,
+            Integer lifetimeSec,
+            String urlCallback,
+            String urlSuccess,
+            String urlError,
+            String additionalData,
+            Integer accuracyPaymentPercent,
+            String amountFiat,
+            String currency,
+            String courseSource,
+            AssetsPolicy assets,
+            String amountCrypto,
+            Asset asset,
+            String masterWalletAddress,
+            String environment) {
+        this(orderId, userId, mode, toAddress, lifetimeSec, urlCallback, urlSuccess,
+                urlError, additionalData, accuracyPaymentPercent, amountFiat, currency,
+                courseSource, assets, amountCrypto, asset, masterWalletAddress, environment,
+                null);
+    }
 
     /**
      * The order without the two newer fields, which the platform then resolves from the
@@ -65,7 +105,7 @@ public record CreatePayInRequest(
             Asset asset) {
         this(orderId, userId, mode, toAddress, lifetimeSec, urlCallback, urlSuccess,
                 urlError, additionalData, accuracyPaymentPercent, amountFiat, currency,
-                courseSource, assets, amountCrypto, asset, null, null);
+                courseSource, assets, amountCrypto, asset, null, null, null);
     }
 
     /** The same order, pinned to a master wallet. */
@@ -73,7 +113,7 @@ public record CreatePayInRequest(
         return new CreatePayInRequest(orderId, userId, mode, toAddress, lifetimeSec,
                 urlCallback, urlSuccess, urlError, additionalData, accuracyPaymentPercent,
                 amountFiat, currency, courseSource, assets, amountCrypto, asset,
-                masterWalletAddress, environment);
+                masterWalletAddress, environment, isPaymentMultiple);
     }
 
     /** The same order, constrained to one environment. See {@link Environment}. */
@@ -81,6 +121,14 @@ public record CreatePayInRequest(
         return new CreatePayInRequest(orderId, userId, mode, toAddress, lifetimeSec,
                 urlCallback, urlSuccess, urlError, additionalData, accuracyPaymentPercent,
                 amountFiat, currency, courseSource, assets, amountCrypto, asset,
-                masterWalletAddress, environment);
+                masterWalletAddress, environment, isPaymentMultiple);
+    }
+
+    /** The same order, payable by several transactions. */
+    public CreatePayInRequest withPaymentMultiple(Boolean isPaymentMultiple) {
+        return new CreatePayInRequest(orderId, userId, mode, toAddress, lifetimeSec,
+                urlCallback, urlSuccess, urlError, additionalData, accuracyPaymentPercent,
+                amountFiat, currency, courseSource, assets, amountCrypto, asset,
+                masterWalletAddress, environment, isPaymentMultiple);
     }
 }

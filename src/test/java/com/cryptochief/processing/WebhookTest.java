@@ -3,6 +3,7 @@ package com.cryptochief.processing;
 import com.cryptochief.processing.exceptions.CryptoChiefException;
 import com.cryptochief.processing.exceptions.DecodeException;
 import com.cryptochief.processing.http.RequestSigner;
+import com.cryptochief.processing.models.PayInStatus;
 import com.cryptochief.processing.webhook.PayInWebhookEvent;
 import com.cryptochief.processing.webhook.PayoutWebhookEvent;
 import com.cryptochief.processing.webhook.SweepWebhookEvent;
@@ -431,5 +432,59 @@ class WebhookTest {
         PayInWebhookEvent event = WebhookVerifier.parse(API_KEY, utf8(body), signed(body), AT_NOW,
                 PayInWebhookEvent.class);
         assertEquals("invoice.confirming", event.event());
+        // A single-payment order carries none of the multiple-payment keys and still decodes.
+        assertNull(event.isPaymentMultiple());
+        assertNull(event.receivedAmountCrypto());
+        assertNull(event.remainingAmountCrypto());
+        assertNull(event.payments());
+    }
+
+    @Test
+    void payInWrongAmountWaitingCarriesEveryReceipt() {
+        String body = """
+                {"event": "invoice.wrong_amount_waiting", "uuid": "u-9", "order_id": "o-9",
+                 "status": "wrong_amount_waiting", "prev_status": "pending", "mode": "crypto",
+                 "amount_crypto": "10", "is_payment_multiple": true,
+                 "received_amount_crypto": "6.5", "remaining_amount_crypto": "3.5",
+                 "payments": [
+                   {"txid": "0x01", "amount_crypto": "4", "confirmations": 19, "status": "confirmed",
+                    "seen_at": "2026-09-30T10:00:00Z"},
+                   {"txid": "0x02", "amount_crypto": "2.5", "confirmations": 3, "status": "confirming",
+                    "seen_at": "2026-09-30T10:05:00Z"}
+                 ]}
+                """;
+        PayInWebhookEvent event = WebhookVerifier.parse(API_KEY, utf8(body), signed(body), AT_NOW,
+                PayInWebhookEvent.class);
+
+        assertEquals(PayInWebhookEvent.EVENT_WRONG_AMOUNT_WAITING, event.event());
+        assertEquals(PayInStatus.WRONG_AMOUNT_WAITING, event.status());
+        assertTrue(event.isPaymentMultiple());
+        assertEquals("6.5", event.receivedAmountCrypto());
+        assertEquals("3.5", event.remainingAmountCrypto());
+        assertEquals(2, event.payments().size());
+        assertEquals("0x01", event.payments().get(0).txid());
+        assertEquals("4", event.payments().get(0).amountCrypto());
+        assertEquals(19, event.payments().get(0).confirmations());
+        assertEquals("confirmed", event.payments().get(0).status());
+        assertEquals("2026-09-30T10:00:00Z", event.payments().get(0).seenAt());
+        assertEquals("0x02", event.payments().get(1).txid());
+        assertEquals(3, event.payments().get(1).confirmations());
+    }
+
+    @Test
+    void payInLatePaymentDecodes() {
+        String body = """
+                {"event": "invoice.late_payment", "uuid": "u-10", "order_id": "o-10", "status": "paid",
+                 "is_payment_multiple": true, "received_amount_crypto": "10.5",
+                 "remaining_amount_crypto": "0",
+                 "payments": [{"txid": "0x03", "amount_crypto": "0.5", "confirmations": 25,
+                               "status": "confirmed", "seen_at": "2026-09-30T12:00:00Z"}]}
+                """;
+        PayInWebhookEvent event = WebhookVerifier.parse(API_KEY, utf8(body), signed(body), AT_NOW,
+                PayInWebhookEvent.class);
+
+        assertEquals(PayInWebhookEvent.EVENT_LATE_PAYMENT, event.event());
+        assertEquals(1, event.payments().size());
+        assertEquals("0x03", event.payments().get(0).txid());
     }
 }
