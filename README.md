@@ -14,7 +14,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 <dependency>
   <groupId>com.crypto-chief</groupId>
   <artifactId>cryptochief-crypto-processing-java</artifactId>
-  <version>0.13.0</version>
+  <version>0.15.0</version>
 </dependency>
 ```
 
@@ -22,7 +22,7 @@ Pure Java SDK for the [Crypto Chief](https://crypto-chief.com/processing/) crypt
 
 ```kotlin
 dependencies {
-    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.13.0")
+    implementation("com.crypto-chief:cryptochief-crypto-processing-java:0.15.0")
 }
 ```
 
@@ -30,7 +30,7 @@ dependencies {
 
 ```groovy
 dependencies {
-    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.13.0'
+    implementation 'com.crypto-chief:cryptochief-crypto-processing-java:0.15.0'
 }
 ```
 
@@ -873,9 +873,10 @@ try {
 
 Without a code, `code()` is `HTTP_<status>`.
 
-5xx is retried with exponential backoff and full jitter. 4xx is not retried. The exception is
+HTTP 502, 503, 504 and network errors are retried up to `maxRetries` times with exponential
+backoff and full jitter. HTTP 500, every other status and 4xx are not retried. The exception is
 one repeat after `SIGNATURE_TIMESTAMP_OUT_OF_RANGE`, with the clock offset taken from
-`server_time`.
+`server_time`. `ApiException.retryable()` is `true` for 502, 503 and 504.
 
 ## Other SDKs
 

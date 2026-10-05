@@ -89,6 +89,7 @@ public final class Options {
         public Builder tonRpcBaseUrl(String v) { this.tonRpcBaseUrl = v; return this; }
         public Builder userAgent(String v) { this.userAgent = v; return this; }
         public Builder requestTimeout(Duration v) { this.requestTimeout = v; return this; }
+        /** Repeats after HTTP 502, 503, 504 and network errors; 3 by default. */
         public Builder maxRetries(int v) { this.maxRetries = v; return this; }
         public Builder initialRetryDelay(Duration v) { this.initialRetryDelay = v; return this; }
         public Builder maxRetryDelay(Duration v) { this.maxRetryDelay = v; return this; }

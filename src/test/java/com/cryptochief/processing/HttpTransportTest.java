@@ -59,7 +59,7 @@ class HttpTransportTest {
     }
 
     @Test
-    void retryOn5xx() throws Exception {
+    void retryOn503() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(503)
                 .setBody("{\"error\":\"SERVICE_ERROR\",\"msg\":\"try again\"}"));
         server.enqueue(new MockResponse().setBody(
@@ -213,11 +213,8 @@ class HttpTransportTest {
     void serviceErrorWithoutAMsgTokenKeepsTheGenericMarker() {
         server.enqueue(new MockResponse().setResponseCode(500)
                 .setBody("{\"ok\":false,\"error\":\"SERVICE_ERROR\",\"msg\":\"\"}"));
-        server.enqueue(new MockResponse().setResponseCode(500)
-                .setBody("{\"ok\":false,\"error\":\"SERVICE_ERROR\",\"msg\":\"\"}"));
-        server.enqueue(new MockResponse().setResponseCode(500)
-                .setBody("{\"ok\":false,\"error\":\"SERVICE_ERROR\",\"msg\":\"\"}"));
         ApiException ex = assertThrows(ApiException.class, () -> client.payouts().info("d"));
         assertEquals(ErrorCode.SERVICE_ERROR, ex.code());
+        assertEquals(1, server.getRequestCount());
     }
 }

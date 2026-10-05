@@ -25,7 +25,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Internal HTTP pipeline: signs each request, retries 5xx + transport failures, parses error envelope.
+ * Internal HTTP pipeline: signs each request, retries HTTP 502, 503, 504 and network errors, parses error
+ * envelope. HTTP 500, every other status and 4xx are not retried.
  *
  * <p>HMAC v1 headers are computed per attempt. On {@code SIGNATURE_TIMESTAMP_OUT_OF_RANGE} with
  * {@code server_time} the clock offset is corrected and the request is repeated once.
@@ -268,7 +269,7 @@ public final class HttpTransport {
                 attempts++;
                 continue;
             }
-            if (status >= 500 && attempt + 1 < attempts) {
+            if (isRetryableStatus(status) && attempt + 1 < attempts) {
                 lastException = apiErr;
                 continue;
             }
@@ -276,6 +277,11 @@ public final class HttpTransport {
         }
         throw lastException != null ? lastException
                 : new NetworkException("cryptochief: retry budget exhausted");
+    }
+
+    /** HTTP 502, 503 and 504; the same set {@link ApiException#retryable()} reports. */
+    private static boolean isRetryableStatus(int status) {
+        return status == 502 || status == 503 || status == 504;
     }
 
     private Request signHmacV1(Request request, String routePath, byte[] body) {

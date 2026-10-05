@@ -57,9 +57,14 @@ public class ApiException extends CryptoChiefException {
         return raw;
     }
 
-    /** True if the SDK considers this error transient and worth retrying. */
+    /**
+     * True for HTTP 502, 503 and 504, the statuses the client retries, and for code
+     * {@link ErrorCode#NETWORK_ERROR} without an HTTP status. False for HTTP 500 and every other
+     * status, also when the body carries {@link ErrorCode#NETWORK_ERROR}.
+     */
     public boolean retryable() {
-        return (status >= 500 && status <= 599) || ErrorCode.NETWORK_ERROR.equals(code);
+        return status == 502 || status == 503 || status == 504
+                || (status == 0 && ErrorCode.NETWORK_ERROR.equals(code));
     }
 
     private static String buildMessage(String code, int status, String description) {
