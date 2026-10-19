@@ -61,6 +61,16 @@ public final class ErrorCode {
     public static final String ORDER_NOT_FOUND = "ORDER_NOT_FOUND";
     public static final String ASSET_ALREADY_SELECTED = "ASSET_ALREADY_SELECTED";
     public static final String URL_CALLBACK_REQUIRED = "URL_CALLBACK_REQUIRED";
+    /**
+     * HTTP 400: {@code url_callback} of a PayIn, payout, batch payout item or signed transaction
+     * has a non-public IP address, a single-label or local name, or a name that resolves to a
+     * non-public address.
+     */
+    public static final String URL_CALLBACK_HOST_NOT_ALLOWED = "url_callback_HOST_NOT_ALLOWED";
+    /** HTTP 400: the {@code url_callback} scheme is not https or http. */
+    public static final String URL_CALLBACK_SCHEME_INVALID = "url_callback_SCHEME_INVALID";
+    /** HTTP 400: {@code url_callback} is not an absolute URL. */
+    public static final String URL_CALLBACK_INVALID = "url_callback_INVALID";
     public static final String USER_ID_REQUIRED = "USER_ID_REQUIRED";
     public static final String TRANSACTION_NOT_FOUND = "TRANSACTION_NOT_FOUND";
     public static final String WITHDRAW_NOT_FOUND = "WITHDRAW_NOT_FOUND";
@@ -68,6 +78,8 @@ public final class ErrorCode {
     // --- Wallets ------------------------------------------------------------------------
     public static final String WALLET_NOT_FOUND = "WALLET_NOT_FOUND";
     public static final String LABEL_TOO_LONG = "LABEL_TOO_LONG";
+    /** HTTP 400: a static wallet {@code callback_url} breaks the {@code url_callback} rule; the reason is in the message. */
+    public static final String CALLBACK_URL_INVALID = "CALLBACK_URL_INVALID";
     public static final String FROM_WALLET_NOT_OWNED = "FROM_WALLET_NOT_OWNED";
     public static final String FROM_WALLET_FROZEN = "FROM_WALLET_FROZEN";
     /** A white-label installation refuses to guess a master wallet rather than falling back to the oldest of the chain family. */
@@ -101,7 +113,18 @@ public final class ErrorCode {
      * execute of that uuid instead of signing again.
      */
     public static final String PREVIOUS_EXECUTE_UNRESOLVED = "PREVIOUS_EXECUTE_UNRESOLVED";
+    /** HTTP 502: the signing infrastructure failed; nothing was signed, retrying is safe. */
     public static final String SIGN_FAILED = "SIGN_FAILED";
+    /**
+     * HTTP 400: estimate or sign of a token transfer, {@code from_address} holds less of the
+     * token than {@code value}. Execute reports it as {@code PREFLIGHT_FAILED: insufficient_balance}.
+     */
+    public static final String INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE";
+    /**
+     * HTTP 400: EVM sign, the transaction reverted in simulation. The contract's reason may
+     * follow ({@code SIMULATION_REVERTED: <reason>}); compare with {@code startsWith}.
+     */
+    public static final String SIMULATION_REVERTED = "SIMULATION_REVERTED";
     public static final String SIGNED_TX_MISMATCH = "SIGNED_TX_MISMATCH";
     public static final String TYPE_INVALID = "TYPE_INVALID";
     public static final String TO_ADDRESS_REQUIRED = "TO_ADDRESS_REQUIRED";
