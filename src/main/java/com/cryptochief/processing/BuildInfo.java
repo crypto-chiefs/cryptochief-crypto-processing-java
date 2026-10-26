@@ -2,7 +2,7 @@ package com.cryptochief.processing;
 
 /** SDK build metadata. */
 public final class BuildInfo {
-    public static final String VERSION = "0.16.0";
+    public static final String VERSION = "0.16.1";
 
     private BuildInfo() {}
 }

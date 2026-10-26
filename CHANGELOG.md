@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.16.1] — 2026-10-26
 
 - Solana account metas in contract calls are sent as `address`, the field the API reads. The first `SolanaAccount` component is `address()`; `pubkey()` is deprecated.
 
