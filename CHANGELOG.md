@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Solana account metas in contract calls are sent as `address`, the field the API reads. The first `SolanaAccount` component is `address()`; `pubkey()` is deprecated.
+
 ## [0.16.0] — 2026-10-21
 
 - Batch payout estimate and execute items: nullable `http_status`; `retryable()` is `true` only for 502

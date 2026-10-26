@@ -215,7 +215,7 @@ class RequestBodyWireTest {
                         "{\"uuid\":\"t-1\"}",
                         (c, t) -> c.transactions().execute(ExecuteTransactionRequest.of("t-1"))),
                 new Case("transactions.sign null call and optional fields",
-                        "{\"calls\":[{\"accounts\":[{\"is_signer\":true,\"is_writable\":false,\"pubkey\":\"A\"}],"
+                        "{\"calls\":[{\"accounts\":[{\"address\":\"A\",\"is_signer\":true,\"is_writable\":false}],"
                                 + "\"data\":\"AAE=\",\"to\":\"P\"},{\"bounce\":false,\"to\":\"Q\",\"value\":\"0\"},null],"
                                 + "\"from_address\":\"So1\",\"network\":\"SOLANA_MAINNET\",\"type\":\"contract\"}",
                         (c, t) -> c.transactions().sign(new SignTransactionRequest(Chain.SOLANA_MAINNET, "So1",
